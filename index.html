@@ -19,6 +19,8 @@
 
     <header>
         <div class="logo" onclick="goHomeAndSave()">VELO</div>
+        <nav class="tab-nav" id="tabNav"></nav>
+        <div class="auth-control" id="authControl"></div>
     </header>
 
     <div class="history-panel" id="historyPanel">
@@ -50,6 +52,8 @@
         </div>
     </section>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="shared.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
@@ -809,6 +813,7 @@
         }
 
         initEnvironment();
+        initVeloNav(null);
 
         window.addEventListener('resize', () => {
             if (renderer && camera && spaceRenderer && spaceCamera) {

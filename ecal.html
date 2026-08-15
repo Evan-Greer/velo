@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VELO — ECal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <header>
+        <a href="index.html" class="logo">VELO</a>
+        <nav class="tab-nav" id="tabNav"></nav>
+        <div class="auth-control" id="authControl"></div>
+    </header>
+
+    <main class="stub-main">
+        <div class="stub-card">
+            <h1>ECal</h1>
+            <p>Your to-do list, classwork, and Google Calendar sync are coming soon.</p>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="shared.js"></script>
+    <script>
+        initVeloNav('ecal');
+    </script>
+</body>
+</html>
