@@ -1,0 +1,464 @@
+:root {
+    --space-gray: #1e1e24;
+    --glass-bg-user: rgba(112, 159, 181, 0.1);
+    --glass-bg-velo: rgba(255, 255, 255, 0.03);
+    --macbook-blue: #a2c4d6; 
+    --black: #05070c;
+    --white: #F5F5F7;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    letter-spacing: -0.02em;
+}
+
+body {
+    background-color: var(--black);
+    color: var(--white);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Space scene sits behind interactive elements */
+#spaceCanvasContainer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 3;
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 40px;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    z-index: 300;
+    background: transparent;
+}
+
+.logo {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 0.25em; /* Extreme wide-set spacing */
+    color: var(--white);
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    transform: scaleX(1.15); /* Slightly stretches the text horizontally to match aerospace proportions */
+    transform-origin: left center;
+}
+
+.logo:hover {
+    opacity: 0.85;
+    transform: scaleX(1.15) translateY(-1px);
+}
+
+/* Replicates the iconic sleek, extended brand accent style */
+.logo span.spacex-style {
+    color: var(--macbook-blue);
+    font-weight: 500;
+    position: relative;
+    margin-left: 2px;
+}
+
+section#home {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 100px 20px 40px 20px;
+    height: 100vh;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+    position: relative;
+    z-index: 4; 
+}
+
+.velo-main-workspace {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.orb-wrapper {
+    width: 450px;
+    height: 450px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    position: absolute;
+    transition: transform 1.2s cubic-bezier(0.19, 1, 0.22, 1), 
+                opacity 1s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.workspace-active .orb-wrapper {
+    transform: scale(1.15) translateY(-30px);
+    opacity: 0;
+    pointer-events: none;
+}
+
+#veloOrbContainer {
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+/* --- SCROLLING CHAT CONTAINER --- */
+.chat-container {
+    position: absolute;
+    width: 100%;
+    height: calc(100% - 40px);
+    top: 20px;
+    overflow-y: auto;
+    padding: 10px 10px 40px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 20px;
+    z-index: 20; 
+    scrollbar-width: thin;
+    scrollbar-color: rgba(162, 196, 214, 0.2) transparent;
+    opacity: 0;
+    transform: translateY(30px);
+    pointer-events: none;
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.workspace-active .chat-container {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto; 
+}
+
+.chat-container.has-fade {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 12%);
+    mask-image: linear-gradient(to bottom, transparent 0%, black 12%);
+}
+
+.bubble {
+    max-width: 78%;
+    padding: 18px 24px;
+    border-radius: 24px;
+    font-size: 0.96rem;
+    line-height: 1.7;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+    font-weight: 400;
+}
+
+.bubble p { margin-bottom: 12px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble strong { color: #fff; font-weight: 600; }
+
+.bubble ul, .bubble ol { margin: 8px 0 12px 20px; }
+.bubble li { margin-bottom: 6px; }
+.bubble li:last-child { margin-bottom: 0; }
+
+.bubble h1, .bubble h2, .bubble h3 {
+    color: #fff;
+    font-weight: 600;
+    line-height: 1.35;
+    margin: 4px 0 10px 0;
+}
+.bubble h1 { font-size: 1.15rem; }
+.bubble h2 { font-size: 1.05rem; }
+.bubble h3 { font-size: 0.98rem; }
+
+.bubble a {
+    color: var(--macbook-blue);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.bubble code {
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 0.85em;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+.bubble pre {
+    position: relative;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: 10px 0;
+    overflow-x: auto;
+}
+.bubble pre code {
+    background: none !important;
+    padding: 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+.code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.bubble pre:hover .code-copy-btn {
+    opacity: 1;
+}
+.code-copy-btn:hover {
+    background: rgba(162, 196, 214, 0.15);
+    border-color: rgba(162, 196, 214, 0.25);
+    color: #fff;
+}
+
+.bubble blockquote {
+    border-left: 3px solid rgba(162, 196, 214, 0.4);
+    padding-left: 14px;
+    margin: 10px 0;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.bubble hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin: 14px 0;
+}
+
+.bubble table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+    font-size: 0.9rem;
+}
+.bubble th, .bubble td {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 8px 12px;
+    text-align: left;
+}
+.bubble th {
+    background: rgba(255, 255, 255, 0.04);
+    font-weight: 600;
+}
+
+.bubble.user {
+    align-self: flex-end;
+    background: var(--glass-bg-user);
+    border: 1px solid rgba(162, 196, 214, 0.15);
+    border-bottom-right-radius: 6px;
+}
+
+.bubble.velo {
+    align-self: flex-start;
+    background: var(--glass-bg-velo);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom-left-radius: 6px;
+}
+
+/* --- 2000 BEADS MINI VELO ORB (10% Bigger) --- */
+.mini-orb-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    position: relative;
+}
+
+.mini-orb-canvas {
+    width: 42px;
+    height: 42px;
+    display: block;
+}
+
+.start-instruction {
+    position: absolute;
+    bottom: 5px; 
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    pointer-events: none; 
+    transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease;
+    z-index: 1;
+}
+
+.workspace-active .start-instruction {
+    transform: translateY(50px);
+    opacity: 0;
+}
+
+.bottom-shelf {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    z-index: 30;
+}
+
+.prompt-wrapper {
+    width: 100%;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 1s ease;
+}
+
+.workspace-active .prompt-wrapper {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.prompt-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 24px;
+    padding: 20px 26px;
+    color: var(--white);
+    font-size: 0.98rem;
+    outline: none;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.prompt-input:focus {
+    border-color: rgba(162, 196, 214, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-dock {
+    display: flex;
+    gap: 12px;
+    align-self: flex-start;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: transform 1.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 1.5s ease;
+}
+
+.workspace-active .nav-dock {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.nav-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.6);
+    padding: 10px 18px;
+    border-radius: 14px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-btn:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(162, 196, 214, 0.2);
+    color: var(--white);
+}
+
+.history-panel {
+    position: fixed;
+    left: -320px;
+    top: 0;
+    width: 300px;
+    height: 100vh;
+    background: rgba(5, 5, 8, 0.94);
+    border-right: 1px solid rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(30px);
+    z-index: 400; 
+    padding: 95px 20px 30px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: left 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.history-panel.open {
+    left: 0;
+}
+
+.history-header {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close-history {
+    cursor: pointer;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.history-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scrollbar-width: none;
+}
+.history-list::-webkit-scrollbar { display: none; }
+
+.history-item {
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 14px;
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.2s ease;
+}
+
+.history-item:hover {
+    background: rgba(162, 196, 214, 0.08);
+    border-color: rgba(162, 196, 214, 0.2);
+    color: #fff;
+}
