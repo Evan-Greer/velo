@@ -241,6 +241,165 @@
             };
         }
 
+        const CAL_API_BASE = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+        let calViewYear, calViewMonth;
+
+        async function fetchCalendarEvents(accessToken, year, month) {
+            const timeMin = new Date(year, month, 1).toISOString();
+            const timeMax = new Date(year, month + 1, 1).toISOString();
+            const url = `${CAL_API_BASE}?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=250`;
+
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+
+            if (res.status === 401) throw { tokenExpired: true };
+            if (!res.ok) throw new Error('Failed to load calendar events');
+
+            const data = await res.json();
+            return data.items || [];
+        }
+
+        function groupEventsByDate(events) {
+            const map = {};
+            events.forEach(e => {
+                const dateStr = e.start.date || (e.start.dateTime || '').slice(0, 10);
+                if (!dateStr) return;
+                (map[dateStr] = map[dateStr] || []).push(e);
+            });
+            return map;
+        }
+
+        function renderCalendarShell() {
+            document.querySelector('.ecal-calendar-column').innerHTML = `
+                <div class="cal-header">
+                    <button type="button" class="cal-nav-btn" id="calPrevBtn">‹</button>
+                    <h1 id="calMonthLabel"></h1>
+                    <button type="button" class="cal-nav-btn" id="calNextBtn">›</button>
+                </div>
+                <form class="ecal-add-form cal-add-form" id="calAddForm">
+                    <input type="text" id="calEventTitle" placeholder="Event title…" required>
+                    <input type="date" id="calEventDate" required>
+                    <button type="submit" class="ecal-add-btn">Add Event</button>
+                </form>
+                <div class="cal-weekdays">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div class="cal-grid" id="calGrid"></div>
+            `;
+        }
+
+        function renderCalendarGrid(year, month, eventsByDate) {
+            const grid = document.getElementById('calGrid');
+            document.getElementById('calMonthLabel').textContent =
+                new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+            const firstWeekday = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = veloTodayString();
+
+            let html = '';
+            for (let i = 0; i < firstWeekday; i++) html += `<div class="cal-cell empty"></div>`;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const dayEvents = eventsByDate[dateStr] || [];
+                html += `
+                    <div class="cal-cell${dateStr === today ? ' today' : ''}">
+                        <div class="cal-day-num">${d}</div>
+                        ${dayEvents.slice(0, 3).map(e => `<div class="cal-event-chip" title="${escapeHtml(e.summary || '(untitled)')}">${escapeHtml(e.summary || '(untitled)')}</div>`).join('')}
+                        ${dayEvents.length > 3 ? `<div class="cal-more">+${dayEvents.length - 3} more</div>` : ''}
+                    </div>
+                `;
+            }
+            grid.innerHTML = html;
+        }
+
+        function renderCalendarReconnect() {
+            document.querySelector('.ecal-calendar-column').innerHTML = `
+                <h1>Calendar</h1>
+                <p class="signin-prompt">Your Google Calendar connection expired.</p>
+                <button type="button" class="auth-btn" id="calReconnectBtn">Reconnect Calendar</button>
+            `;
+            document.getElementById('calReconnectBtn').onclick = signInWithGoogle;
+        }
+
+        async function loadCalendarMonth(accessToken, year, month) {
+            try {
+                const events = await fetchCalendarEvents(accessToken, year, month);
+                renderCalendarGrid(year, month, groupEventsByDate(events));
+            } catch (e) {
+                if (e.tokenExpired) {
+                    renderCalendarReconnect();
+                } else {
+                    document.querySelector('.ecal-calendar-column').innerHTML =
+                        `<h1>Calendar</h1><p class="signin-prompt">Couldn't load calendar events.</p>`;
+                }
+            }
+        }
+
+        function initCalendar(session) {
+            const accessToken = session.provider_token;
+            if (!accessToken) {
+                renderCalendarReconnect();
+                return;
+            }
+
+            renderCalendarShell();
+
+            const now = new Date();
+            calViewYear = now.getFullYear();
+            calViewMonth = now.getMonth();
+
+            const refresh = () => loadCalendarMonth(accessToken, calViewYear, calViewMonth);
+
+            document.getElementById('calPrevBtn').onclick = () => {
+                calViewMonth--;
+                if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+                refresh();
+            };
+            document.getElementById('calNextBtn').onclick = () => {
+                calViewMonth++;
+                if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+                refresh();
+            };
+
+            document.getElementById('calAddForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const title = document.getElementById('calEventTitle').value.trim();
+                const date = document.getElementById('calEventDate').value;
+                if (!title || !date) return;
+
+                const nextDay = new Date(date + 'T00:00:00');
+                nextDay.setDate(nextDay.getDate() + 1);
+                const endDate = nextDay.toISOString().slice(0, 10);
+
+                const res = await fetch(CAL_API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        summary: title,
+                        start: { date },
+                        end: { date: endDate }
+                    })
+                });
+
+                if (res.status === 401) {
+                    renderCalendarReconnect();
+                    return;
+                }
+                if (!res.ok) {
+                    alert("Couldn't add that event.");
+                    return;
+                }
+
+                e.target.reset();
+                refresh();
+            };
+
+            refresh();
+        }
+
         async function renderSignedIn(session) {
             renderShell();
             wireTodoList(session.user.id);
@@ -249,6 +408,7 @@
             loadTodos();
             loadClasswork();
             loadClasses();
+            initCalendar(session);
         }
 
         async function initEcalPage() {
