@@ -9,12 +9,9 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const VELO_TABS = [
     { id: 'ecal', label: 'ECal', href: 'ecal.html' },
-    { id: 'immerse', label: 'Immerse', href: 'immerse.html' }
-];
-
-const VELO_ICON_LINKS = [
-    { id: 'dps', href: 'dps.html', symbol: '✝', extraClass: 'icon-cross', title: 'Daily Prayer & Saint' },
-    { id: 'log', href: 'log.html', symbol: 'Log', extraClass: 'icon-log', title: 'Thankful For' }
+    { id: 'immerse', label: 'Immerse', href: 'immerse.html' },
+    { id: 'dps', label: '✝', href: 'dps.html', title: 'Daily Prayer & Saint' },
+    { id: 'log', label: 'Log', href: 'log.html', title: 'Thankful For' }
 ];
 
 async function signInWithGoogle() {
@@ -39,7 +36,7 @@ function renderTabNav(activePage) {
     const el = document.getElementById('tabNav');
     if (!el) return;
     el.innerHTML = '<div class="tab-slider" id="tabSlider"></div>' + VELO_TABS.map(tab =>
-        `<a href="${tab.href}" class="tab-link${tab.id === activePage ? ' active' : ''}" data-tab="${tab.id}">${tab.label}</a>`
+        `<a href="${tab.href}" class="tab-link${tab.id === activePage ? ' active' : ''}" data-tab="${tab.id}"${tab.title ? ` title="${tab.title}"` : ''}>${tab.label}</a>`
     ).join('');
     positionTabSlider();
 }
@@ -101,17 +98,8 @@ function renderAuthControl(session) {
     }
 }
 
-function renderIconNav(activePage) {
-    const el = document.getElementById('iconNav');
-    if (!el) return;
-    el.innerHTML = VELO_ICON_LINKS.map(link =>
-        `<a href="${link.href}" class="icon-circle ${link.extraClass}${link.id === activePage ? ' active' : ''}" title="${link.title}">${link.symbol}</a>`
-    ).join('');
-}
-
 async function initVeloNav(activePage) {
     renderTabNav(activePage);
-    renderIconNav(activePage);
 
     const { data: { session } } = await sb.auth.getSession();
     renderAuthControl(session);
