@@ -129,6 +129,10 @@ header {
     color: var(--white);
 }
 
+.tab-link[data-tab="dps"] {
+    font-size: 1.15rem;
+}
+
 @keyframes velo-pulse {
     0%, 100% {
         color: #92c2dd;
@@ -136,7 +140,7 @@ header {
     }
     50% {
         color: #4a90d9;
-        text-shadow: 0 0 6px rgba(74, 144, 217, 0.5);
+        text-shadow: 0 0 8px rgba(74, 144, 217, 0.65);
     }
 }
 
