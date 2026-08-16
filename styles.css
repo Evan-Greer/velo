@@ -131,17 +131,17 @@ header {
 
 @keyframes velo-pulse {
     0%, 100% {
-        color: var(--macbook-blue);
-        text-shadow: 0 0 0 rgba(162, 196, 214, 0);
+        color: #92c2dd;
+        text-shadow: 0 0 0 rgba(74, 144, 217, 0);
     }
     50% {
-        color: #dceffa;
-        text-shadow: 0 0 10px rgba(162, 196, 214, 0.85);
+        color: #4a90d9;
+        text-shadow: 0 0 6px rgba(74, 144, 217, 0.5);
     }
 }
 
 .tab-link.needs-attention {
-    animation: velo-pulse 1.8s ease-in-out infinite;
+    animation: velo-pulse 3.2s ease-in-out infinite;
 }
 
 .auth-control {
