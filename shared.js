@@ -28,12 +28,36 @@ async function signOutOfVelo() {
     window.location.reload();
 }
 
+let currentTabPage = null;
+
 function renderTabNav(activePage) {
+    currentTabPage = activePage;
     const el = document.getElementById('tabNav');
     if (!el) return;
-    el.innerHTML = VELO_TABS.map(tab =>
-        `<a href="${tab.href}" class="tab-link${tab.id === activePage ? ' active' : ''}">${tab.label}</a>`
+    el.innerHTML = '<div class="tab-slider" id="tabSlider"></div>' + VELO_TABS.map(tab =>
+        `<a href="${tab.href}" class="tab-link${tab.id === activePage ? ' active' : ''}" data-tab="${tab.id}">${tab.label}</a>`
     ).join('');
+    positionTabSlider();
+}
+
+function positionTabSlider() {
+    const nav = document.getElementById('tabNav');
+    const slider = document.getElementById('tabSlider');
+    if (!nav || !slider) return;
+
+    const activeLink = nav.querySelector(`.tab-link[data-tab="${currentTabPage}"]`);
+    if (!activeLink) {
+        slider.style.opacity = '0';
+        return;
+    }
+    slider.style.opacity = '1';
+    slider.style.width = activeLink.offsetWidth + 'px';
+    slider.style.transform = `translateX(${activeLink.offsetLeft}px)`;
+}
+
+window.addEventListener('resize', positionTabSlider);
+if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(positionTabSlider);
 }
 
 function renderAuthControl(session) {
