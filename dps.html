@@ -87,6 +87,25 @@
             }
         }
 
+        function dpsCacheKey() {
+            return 'velo_dps_cache_' + veloTodayString();
+        }
+
+        function loadDpsCache() {
+            try {
+                const raw = localStorage.getItem(dpsCacheKey());
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function saveDpsCache(data) {
+            try {
+                localStorage.setItem(dpsCacheKey(), JSON.stringify(data));
+            } catch (e) {}
+        }
+
         function renderPage(celebration, reflection, prayer) {
             const pageMain = document.getElementById('pageMain');
             pageMain.innerHTML = `
@@ -101,20 +120,36 @@
                     ${celebration.image ? `<img src="${celebration.image}" alt="" style="width:100%;border-radius:16px;margin-bottom:18px;">` : ''}
                     ${celebration.quote ? `<p class="entry-text" style="font-style:italic;margin-bottom:14px;">"${celebration.quote}"</p>` : ''}
                     ${celebration.description ? `<p class="entry-text" style="margin-bottom:14px;">${celebration.description}</p>` : ''}
-                    ${reflection ? `<p class="entry-text">${reflection}</p>` : ''}
+                    <p class="entry-text" id="dpsReflection">${reflection || "Writing today's reflection…"}</p>
                 </div>
             `;
+        }
+
+        function renderReflection(text) {
+            const el = document.getElementById('dpsReflection');
+            if (el) el.textContent = text;
         }
 
         async function initDpsPage() {
             veloMarkDoneToday('velo_dps_last_seen');
             initVeloNav('dps');
 
+            const cached = loadDpsCache();
+            if (cached) {
+                renderPage(cached.celebration, cached.reflection, cached.prayer);
+                return;
+            }
+
             try {
-                const celebration = await fetchTodaysCelebration();
+                const data = await fetchTodaysCelebration();
+                const celebration = data.celebration;
                 const prayer = todaysPrayer();
-                const reflection = await fetchReflection(celebration.celebration);
-                renderPage(celebration.celebration, reflection, prayer);
+
+                renderPage(celebration, '', prayer);
+
+                const reflection = await fetchReflection(celebration);
+                renderReflection(reflection);
+                saveDpsCache({ celebration, prayer, reflection });
             } catch (e) {
                 document.getElementById('pageMain').innerHTML = `
                     <div class="content-card">
