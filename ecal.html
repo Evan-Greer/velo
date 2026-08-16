@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="scrollable-page">
+<body>
 
     <header>
         <a href="index.html" class="logo">VELO</a>
@@ -15,10 +15,8 @@
         <div class="auth-control" id="authControl"></div>
     </header>
 
-    <main class="page-main" id="pageMain">
-        <div class="content-card">
-            <p class="signin-prompt">Loading…</p>
-        </div>
+    <main class="ecal-shell centered" id="pageMain">
+        <p class="signin-prompt">Loading…</p>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -35,46 +33,44 @@
         }
 
         function renderSignedOut() {
-            document.getElementById('pageMain').innerHTML = `
-                <div class="content-card">
-                    <p class="signin-prompt">Connect your Google account (top right) to use your to-do list, classwork, and calendar.</p>
-                </div>
-            `;
+            const el = document.getElementById('pageMain');
+            el.className = 'ecal-shell centered';
+            el.innerHTML = `<p class="signin-prompt">Connect your Google account (top right) to use your to-do list, classwork, and calendar.</p>`;
         }
 
         function renderShell() {
-            document.getElementById('pageMain').innerHTML = `
-                <div class="ecal-grid">
-                    <div class="content-card ecal-column">
-                        <h1>To-Do</h1>
-                        <form class="ecal-add-form" id="todoForm">
-                            <input type="text" id="todoInput" placeholder="Add a to-do…" required>
-                            <button type="submit" class="auth-btn">Add</button>
-                        </form>
-                        <div class="ecal-list" id="todoList"></div>
-                    </div>
+            const el = document.getElementById('pageMain');
+            el.className = 'ecal-shell';
+            el.innerHTML = `
+                <div class="ecal-side-column ecal-left">
+                    <h1>To-Do</h1>
+                    <form class="ecal-add-form" id="todoForm">
+                        <input type="text" id="todoInput" placeholder="Add a to-do…" required>
+                        <button type="submit" class="auth-btn">Add</button>
+                    </form>
+                    <div class="ecal-list" id="todoList"></div>
+                </div>
 
-                    <div class="content-card ecal-column">
-                        <h1>Calendar</h1>
-                        <p class="signin-prompt">Coming next.</p>
-                    </div>
+                <div class="ecal-calendar-column">
+                    <h1>Calendar</h1>
+                    <p class="signin-prompt">Coming next.</p>
+                </div>
 
-                    <div class="content-card ecal-column">
-                        <h1>Classwork</h1>
-                        <form class="ecal-add-form" id="classworkForm">
-                            <input type="text" id="classworkTitleInput" placeholder="Title…" required>
-                            <input type="text" id="classworkClassInput" placeholder="Class">
-                            <select id="classworkTypeInput">
-                                <option value="homework">Homework</option>
-                                <option value="quiz">Quiz</option>
-                                <option value="test">Test</option>
-                                <option value="project">Project</option>
-                            </select>
-                            <input type="date" id="classworkDueInput">
-                            <button type="submit" class="auth-btn">Add</button>
-                        </form>
-                        <div class="ecal-list" id="classworkList"></div>
-                    </div>
+                <div class="ecal-side-column ecal-right">
+                    <h1>Classwork</h1>
+                    <form class="ecal-add-form" id="classworkForm">
+                        <input type="text" id="classworkTitleInput" placeholder="Title…" required>
+                        <input type="text" id="classworkClassInput" placeholder="Class">
+                        <select id="classworkTypeInput">
+                            <option value="homework">Homework</option>
+                            <option value="quiz">Quiz</option>
+                            <option value="test">Test</option>
+                            <option value="project">Project</option>
+                        </select>
+                        <input type="date" id="classworkDueInput">
+                        <button type="submit" class="auth-btn">Add</button>
+                    </form>
+                    <div class="ecal-list" id="classworkList"></div>
                 </div>
             `;
         }
