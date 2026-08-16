@@ -152,12 +152,76 @@ header {
     border-color: rgba(162, 196, 214, 0.25);
 }
 
+.user-menu-wrapper {
+    position: relative;
+}
+
 .user-chip {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.75);
+    background: none;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 12px;
+    transition: background 0.2s ease;
+}
+
+.user-chip:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.user-chip .chip-last {
+    margin-left: 5px;
+}
+
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 140px;
+    background: rgba(8, 10, 16, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 6px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 500;
+}
+
+.user-dropdown.open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    font-family: inherit;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.8rem;
+    padding: 10px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.dropdown-item:hover {
+    background: rgba(255, 118, 118, 0.1);
+    color: #ff7676;
 }
 
 .user-chip img {

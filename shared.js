@@ -60,20 +60,37 @@ if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(positionTabSlider);
 }
 
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('userDropdown');
+    const chipBtn = document.getElementById('userChipBtn');
+    if (!dropdown || dropdown.contains(e.target) || chipBtn?.contains(e.target)) return;
+    dropdown.classList.remove('open');
+});
+
 function renderAuthControl(session) {
     const el = document.getElementById('authControl');
     if (!el) return;
 
     if (session && session.user) {
-        const name = session.user.user_metadata?.full_name || session.user.email;
+        const rawName = session.user.user_metadata?.full_name || session.user.email;
         const avatar = session.user.user_metadata?.avatar_url;
+        const [firstName, ...restName] = rawName.split(' ');
+        const lastName = restName.join(' ');
+
         el.innerHTML = `
-            <div class="user-chip">
-                ${avatar ? `<img src="${avatar}" alt="">` : ''}
-                <span>${name}</span>
+            <div class="user-menu-wrapper">
+                <button class="user-chip" id="userChipBtn" type="button">
+                    ${avatar ? `<img src="${avatar}" alt="">` : ''}
+                    <span class="chip-first">${firstName}</span>${lastName ? `<span class="chip-last">${lastName}</span>` : ''}
+                </button>
+                <div class="user-dropdown" id="userDropdown">
+                    <button class="dropdown-item" id="signOutBtn" type="button">Sign Out</button>
+                </div>
             </div>
-            <button class="auth-btn" id="signOutBtn">Sign Out</button>
         `;
+        document.getElementById('userChipBtn').onclick = () => {
+            document.getElementById('userDropdown').classList.toggle('open');
+        };
         document.getElementById('signOutBtn').onclick = signOutOfVelo;
     } else {
         el.innerHTML = `<button class="auth-btn" id="signInBtn">Connect Google</button>`;
