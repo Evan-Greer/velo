@@ -462,15 +462,15 @@ header {
 
 .ecal-add-form {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 8px;
     margin-bottom: 18px;
 }
 
 .ecal-add-form input,
 .ecal-add-form select {
-    flex: 1;
-    min-width: 100px;
+    width: 100%;
+    box-sizing: border-box;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
@@ -485,6 +485,61 @@ header {
 .ecal-add-form input:focus,
 .ecal-add-form select:focus {
     border-color: rgba(162, 196, 214, 0.3);
+}
+
+.ecal-add-btn {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(120, 210, 155, 0.12);
+    border: 1px solid rgba(120, 210, 155, 0.3);
+    color: #bfe9cc;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ecal-add-btn:hover {
+    background: rgba(120, 210, 155, 0.2);
+    border-color: rgba(120, 210, 155, 0.45);
+}
+
+.ecal-class-manager {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.ecal-class-manager input {
+    flex: 1;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 9px 12px;
+    color: var(--white);
+    font-family: inherit;
+    font-size: 0.78rem;
+    outline: none;
+}
+
+.ecal-class-manager button {
+    flex-shrink: 0;
+    width: 36px;
+    border-radius: 12px;
+    background: rgba(120, 210, 155, 0.12);
+    border: 1px solid rgba(120, 210, 155, 0.3);
+    color: #bfe9cc;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ecal-class-manager button:hover {
+    background: rgba(120, 210, 155, 0.2);
 }
 
 .ecal-list {
