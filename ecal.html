@@ -61,9 +61,12 @@
 
                     <form class="ecal-add-form" id="classworkForm">
                         <input type="text" id="classworkTitleInput" placeholder="Title…" required>
-                        <select id="classworkClassInput" required>
-                            <option value="" disabled selected>Select a class</option>
-                        </select>
+                        <div class="ecal-class-select-row">
+                            <select id="classworkClassInput" required>
+                                <option value="" disabled selected>Select a class</option>
+                            </select>
+                            <button type="button" class="ecal-delete-btn" id="deleteClassBtn" title="Delete selected class">✕</button>
+                        </div>
                         <select id="classworkTypeInput">
                             <option value="homework">Homework</option>
                             <option value="quiz">Quiz</option>
@@ -159,6 +162,19 @@
                 }
                 loadClasses(name);
             });
+
+            document.getElementById('deleteClassBtn').onclick = async () => {
+                const className = select.value;
+                if (!className || className === '__add_new__') return;
+                if (!confirm(`Delete "${className}"? Classwork already using it will keep the name, but you won't be able to pick it again.`)) return;
+
+                const { error } = await sb.from('classes').delete().eq('user_id', userId).eq('name', className);
+                if (error) {
+                    alert("Couldn't delete that class: " + error.message);
+                    return;
+                }
+                loadClasses();
+            };
         }
 
         function wireTodoList(userId) {
