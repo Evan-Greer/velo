@@ -79,8 +79,8 @@ function renderAuthControl(session) {
         el.innerHTML = `
             <div class="user-menu-wrapper">
                 <button class="user-chip" id="userChipBtn" type="button">
-                    ${avatar ? `<img src="${avatar}" alt="">` : ''}
                     <span>${firstName}</span>
+                    ${avatar ? `<img src="${avatar}" alt="">` : ''}
                 </button>
                 <div class="user-dropdown" id="userDropdown">
                     <button class="dropdown-item" id="signOutBtn" type="button">Sign Out</button>
