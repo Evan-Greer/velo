@@ -59,11 +59,6 @@
                 <div class="ecal-side-column ecal-right">
                     <h1>Classwork</h1>
 
-                    <form class="ecal-class-manager" id="classManagerForm">
-                        <input type="text" id="newClassInput" placeholder="Add a class…" required>
-                        <button type="submit" title="Add class">+</button>
-                    </form>
-
                     <form class="ecal-add-form" id="classworkForm">
                         <input type="text" id="classworkTitleInput" placeholder="Title…" required>
                         <select id="classworkClassInput" required>
@@ -129,29 +124,41 @@
             renderClasswork(data || []);
         }
 
-        async function loadClasses() {
-            const { data } = await sb.from('classes').select('*').order('name', { ascending: true });
+        async function loadClasses(selectValue) {
+            const { data, error } = await sb.from('classes').select('*').order('name', { ascending: true });
+            if (error) console.error('loadClasses failed:', error.message);
+
             const select = document.getElementById('classworkClassInput');
-            const current = select.value;
             select.innerHTML = '<option value="" disabled>Select a class</option>' +
-                (data || []).map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('');
-            if (current && (data || []).some(c => c.name === current)) {
-                select.value = current;
+                (data || []).map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('') +
+                '<option value="__add_new__">+ Add new class…</option>';
+
+            if (selectValue && (data || []).some(c => c.name === selectValue)) {
+                select.value = selectValue;
             } else {
                 select.selectedIndex = 0;
             }
         }
 
-        function wireClassManager(userId) {
-            document.getElementById('classManagerForm').onsubmit = async (e) => {
-                e.preventDefault();
-                const input = document.getElementById('newClassInput');
-                const name = input.value.trim();
-                if (!name) return;
-                await sb.from('classes').insert({ user_id: userId, name });
-                input.value = '';
-                loadClasses();
-            };
+        function wireClassSelect(userId) {
+            const select = document.getElementById('classworkClassInput');
+            select.addEventListener('change', async () => {
+                if (select.value !== '__add_new__') return;
+
+                const name = (prompt('New class name:') || '').trim();
+                if (!name) {
+                    select.selectedIndex = 0;
+                    return;
+                }
+
+                const { error } = await sb.from('classes').insert({ user_id: userId, name });
+                if (error) {
+                    alert("Couldn't add that class: " + error.message);
+                    select.selectedIndex = 0;
+                    return;
+                }
+                loadClasses(name);
+            });
         }
 
         function wireTodoList(userId) {
@@ -160,7 +167,8 @@
                 const input = document.getElementById('todoInput');
                 const text = input.value.trim();
                 if (!text) return;
-                await sb.from('todos').insert({ user_id: userId, text });
+                const { error } = await sb.from('todos').insert({ user_id: userId, text });
+                if (error) { alert("Couldn't add that to-do: " + error.message); return; }
                 input.value = '';
                 loadTodos();
             };
@@ -189,13 +197,14 @@
                 const type = document.getElementById('classworkTypeInput').value;
                 const dueDate = document.getElementById('classworkDueInput').value || null;
 
-                await sb.from('classwork').insert({
+                const { error } = await sb.from('classwork').insert({
                     user_id: userId,
                     title,
                     class_name: className || null,
                     type,
                     due_date: dueDate
                 });
+                if (error) { alert("Couldn't add that classwork: " + error.message); return; }
 
                 e.target.reset();
                 loadClasswork();
@@ -220,7 +229,7 @@
             renderShell();
             wireTodoList(session.user.id);
             wireClassworkList(session.user.id);
-            wireClassManager(session.user.id);
+            wireClassSelect(session.user.id);
             loadTodos();
             loadClasswork();
             loadClasses();
