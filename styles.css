@@ -282,6 +282,116 @@ header {
     line-height: 1.6;
 }
 
+/* --- Shared "real content" page pattern (Log, ECal, DPS, Immerse) --- */
+
+.page-main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 110px 20px 60px 20px;
+    gap: 24px;
+}
+
+.content-card {
+    width: 100%;
+    max-width: 560px;
+    padding: 36px 40px;
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.content-card h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--white);
+    margin-bottom: 6px;
+}
+
+.content-card .subtitle {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+    margin-bottom: 22px;
+}
+
+.velo-textarea {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px 18px;
+    color: var(--white);
+    font-family: inherit;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.velo-textarea:focus {
+    border-color: rgba(162, 196, 214, 0.3);
+}
+
+.save-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.save-status {
+    font-size: 0.8rem;
+    color: #92c2dd;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.save-status.visible {
+    opacity: 1;
+}
+
+.history-list {
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.history-entry {
+    padding: 16px 20px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.history-entry .entry-date {
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #92c2dd;
+    margin-bottom: 6px;
+}
+
+.history-entry .entry-text {
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+}
+
+.signin-prompt {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
 section#home {
     flex-grow: 1;
     display: flex;

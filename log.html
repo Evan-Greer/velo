@@ -15,20 +15,122 @@
         <div class="auth-control" id="authControl"></div>
     </header>
 
-    <main class="stub-main">
-        <div class="stub-card">
-            <h1>Log</h1>
-            <p>Your daily "thankful for" journal is coming soon.</p>
+    <main class="page-main" id="pageMain">
+        <div class="content-card">
+            <p class="signin-prompt">Loading…</p>
         </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="shared.js"></script>
     <script>
-        // TODO(Phase 3): call veloMarkDoneToday('velo_log_last_done') from the
-        // real journal entry form's submit handler, not on page load — the Log
-        // tab should keep pulsing until today's entry is actually written.
+        function todayISO() {
+            return veloTodayString();
+        }
+
+        function formatEntryDate(iso) {
+            const [y, m, d] = iso.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+                weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+            });
+        }
+
+        function renderSignedOut() {
+            document.getElementById('pageMain').innerHTML = `
+                <div class="content-card">
+                    <h1>Log</h1>
+                    <p class="subtitle">Thankful For</p>
+                    <p class="signin-prompt">Connect your Google account (top right) to start your daily journal.</p>
+                </div>
+            `;
+        }
+
+        async function renderSignedIn(session) {
+            const pageMain = document.getElementById('pageMain');
+            pageMain.innerHTML = `
+                <div class="content-card">
+                    <h1>Log</h1>
+                    <p class="subtitle">${formatEntryDate(todayISO())}</p>
+                    <textarea class="velo-textarea" id="logTextarea" rows="4" placeholder="What are you thankful for today?"></textarea>
+                    <div class="save-row">
+                        <button class="auth-btn" id="logSaveBtn" type="button">Save</button>
+                        <span class="save-status" id="logSaveStatus">Saved</span>
+                    </div>
+                </div>
+                <div class="history-list" id="logHistory"></div>
+            `;
+
+            const { data: todayEntry } = await sb
+                .from('journal_entries')
+                .select('thankful_text')
+                .eq('entry_date', todayISO())
+                .maybeSingle();
+
+            if (todayEntry) {
+                document.getElementById('logTextarea').value = todayEntry.thankful_text;
+            }
+
+            document.getElementById('logSaveBtn').onclick = async () => {
+                const text = document.getElementById('logTextarea').value.trim();
+                if (!text) return;
+
+                await sb.from('journal_entries').upsert({
+                    user_id: session.user.id,
+                    entry_date: todayISO(),
+                    thankful_text: text
+                }, { onConflict: 'user_id,entry_date' });
+
+                veloMarkDoneToday('velo_log_last_done');
+                renderTabNav('log');
+
+                const status = document.getElementById('logSaveStatus');
+                status.classList.add('visible');
+                setTimeout(() => status.classList.remove('visible'), 1800);
+
+                loadHistory();
+            };
+
+            loadHistory();
+        }
+
+        async function loadHistory() {
+            const historyEl = document.getElementById('logHistory');
+            if (!historyEl) return;
+
+            const { data: entries } = await sb
+                .from('journal_entries')
+                .select('entry_date, thankful_text')
+                .order('entry_date', { ascending: false })
+                .limit(30);
+
+            const past = (entries || []).filter(e => e.entry_date !== todayISO());
+
+            historyEl.innerHTML = past.map(e => `
+                <div class="history-entry">
+                    <div class="entry-date">${formatEntryDate(e.entry_date)}</div>
+                    <div class="entry-text">${e.thankful_text.replace(/</g, '&lt;')}</div>
+                </div>
+            `).join('');
+        }
+
+        async function initLogPage() {
+            const { data: { session } } = await sb.auth.getSession();
+            if (session) {
+                renderSignedIn(session);
+            } else {
+                renderSignedOut();
+            }
+            sb.auth.onAuthStateChange((_event, newSession) => {
+                if (newSession) {
+                    renderSignedIn(newSession);
+                } else {
+                    renderSignedOut();
+                }
+            });
+        }
+
         initVeloNav('log');
+        initLogPage();
     </script>
 </body>
 </html>
