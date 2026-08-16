@@ -84,6 +84,7 @@ header {
     top: 50%;
     transform: translate(-50%, -50%);
     display: flex;
+    align-items: center;
     gap: 2px;
     padding: 5px;
     border-radius: 18px;
