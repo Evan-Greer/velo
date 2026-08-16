@@ -15,17 +15,204 @@
         <div class="auth-control" id="authControl"></div>
     </header>
 
-    <main class="stub-main">
-        <div class="stub-card">
-            <h1>ECal</h1>
-            <p>Your to-do list, classwork, and Google Calendar sync are coming soon.</p>
+    <main class="page-main" id="pageMain">
+        <div class="content-card">
+            <p class="signin-prompt">Loading…</p>
         </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="shared.js"></script>
     <script>
+        function escapeHtml(str) {
+            return (str || '').replace(/</g, '&lt;');
+        }
+
+        function formatDueDate(iso) {
+            if (!iso) return '';
+            const [y, m, d] = iso.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
+
+        function renderSignedOut() {
+            document.getElementById('pageMain').innerHTML = `
+                <div class="content-card">
+                    <p class="signin-prompt">Connect your Google account (top right) to use your to-do list, classwork, and calendar.</p>
+                </div>
+            `;
+        }
+
+        function renderShell() {
+            document.getElementById('pageMain').innerHTML = `
+                <div class="ecal-grid">
+                    <div class="content-card ecal-column">
+                        <h1>To-Do</h1>
+                        <form class="ecal-add-form" id="todoForm">
+                            <input type="text" id="todoInput" placeholder="Add a to-do…" required>
+                            <button type="submit" class="auth-btn">Add</button>
+                        </form>
+                        <div class="ecal-list" id="todoList"></div>
+                    </div>
+
+                    <div class="content-card ecal-column">
+                        <h1>Calendar</h1>
+                        <p class="signin-prompt">Coming next.</p>
+                    </div>
+
+                    <div class="content-card ecal-column">
+                        <h1>Classwork</h1>
+                        <form class="ecal-add-form" id="classworkForm">
+                            <input type="text" id="classworkTitleInput" placeholder="Title…" required>
+                            <input type="text" id="classworkClassInput" placeholder="Class">
+                            <select id="classworkTypeInput">
+                                <option value="homework">Homework</option>
+                                <option value="quiz">Quiz</option>
+                                <option value="test">Test</option>
+                                <option value="project">Project</option>
+                            </select>
+                            <input type="date" id="classworkDueInput">
+                            <button type="submit" class="auth-btn">Add</button>
+                        </form>
+                        <div class="ecal-list" id="classworkList"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTodos(todos) {
+            const el = document.getElementById('todoList');
+            if (!todos.length) {
+                el.innerHTML = '<p class="ecal-empty">Nothing on your list.</p>';
+                return;
+            }
+            el.innerHTML = todos.map(t => `
+                <div class="ecal-item${t.completed ? ' completed' : ''}" data-id="${t.id}">
+                    <input type="checkbox" class="todo-toggle" ${t.completed ? 'checked' : ''}>
+                    <div class="ecal-item-body">
+                        <div class="ecal-item-title">${escapeHtml(t.text)}</div>
+                        ${t.due_date ? `<div class="ecal-item-meta">${formatDueDate(t.due_date)}</div>` : ''}
+                    </div>
+                    <button class="ecal-delete-btn todo-delete" title="Delete">✕</button>
+                </div>
+            `).join('');
+        }
+
+        function renderClasswork(items) {
+            const el = document.getElementById('classworkList');
+            if (!items.length) {
+                el.innerHTML = '<p class="ecal-empty">No classwork yet.</p>';
+                return;
+            }
+            el.innerHTML = items.map(c => `
+                <div class="ecal-item${c.completed ? ' completed' : ''}" data-id="${c.id}">
+                    <input type="checkbox" class="classwork-toggle" ${c.completed ? 'checked' : ''}>
+                    <div class="ecal-item-body">
+                        <div class="ecal-item-title">${escapeHtml(c.title)}${c.class_name ? ` — ${escapeHtml(c.class_name)}` : ''}</div>
+                        <div class="ecal-item-meta">${c.type}${c.due_date ? ' · ' + formatDueDate(c.due_date) : ''}</div>
+                    </div>
+                    <button class="ecal-delete-btn classwork-delete" title="Delete">✕</button>
+                </div>
+            `).join('');
+        }
+
+        async function loadTodos() {
+            const { data } = await sb.from('todos').select('*').order('created_at', { ascending: true });
+            renderTodos(data || []);
+        }
+
+        async function loadClasswork() {
+            const { data } = await sb.from('classwork').select('*').order('due_date', { ascending: true, nullsFirst: false });
+            renderClasswork(data || []);
+        }
+
+        function wireTodoList(userId) {
+            document.getElementById('todoForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const input = document.getElementById('todoInput');
+                const text = input.value.trim();
+                if (!text) return;
+                await sb.from('todos').insert({ user_id: userId, text });
+                input.value = '';
+                loadTodos();
+            };
+
+            document.getElementById('todoList').onclick = async (e) => {
+                const item = e.target.closest('.ecal-item');
+                if (!item) return;
+                const id = item.dataset.id;
+
+                if (e.target.classList.contains('todo-toggle')) {
+                    await sb.from('todos').update({ completed: e.target.checked }).eq('id', id);
+                    loadTodos();
+                } else if (e.target.classList.contains('todo-delete')) {
+                    await sb.from('todos').delete().eq('id', id);
+                    loadTodos();
+                }
+            };
+        }
+
+        function wireClassworkList(userId) {
+            document.getElementById('classworkForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const title = document.getElementById('classworkTitleInput').value.trim();
+                if (!title) return;
+                const className = document.getElementById('classworkClassInput').value.trim();
+                const type = document.getElementById('classworkTypeInput').value;
+                const dueDate = document.getElementById('classworkDueInput').value || null;
+
+                await sb.from('classwork').insert({
+                    user_id: userId,
+                    title,
+                    class_name: className || null,
+                    type,
+                    due_date: dueDate
+                });
+
+                e.target.reset();
+                loadClasswork();
+            };
+
+            document.getElementById('classworkList').onclick = async (e) => {
+                const item = e.target.closest('.ecal-item');
+                if (!item) return;
+                const id = item.dataset.id;
+
+                if (e.target.classList.contains('classwork-toggle')) {
+                    await sb.from('classwork').update({ completed: e.target.checked }).eq('id', id);
+                    loadClasswork();
+                } else if (e.target.classList.contains('classwork-delete')) {
+                    await sb.from('classwork').delete().eq('id', id);
+                    loadClasswork();
+                }
+            };
+        }
+
+        async function renderSignedIn(session) {
+            renderShell();
+            wireTodoList(session.user.id);
+            wireClassworkList(session.user.id);
+            loadTodos();
+            loadClasswork();
+        }
+
+        async function initEcalPage() {
+            const { data: { session } } = await sb.auth.getSession();
+            if (session) {
+                renderSignedIn(session);
+            } else {
+                renderSignedOut();
+            }
+            sb.auth.onAuthStateChange((_event, newSession) => {
+                if (newSession) {
+                    renderSignedIn(newSession);
+                } else {
+                    renderSignedOut();
+                }
+            });
+        }
+
         initVeloNav('ecal');
+        initEcalPage();
     </script>
 </body>
 </html>

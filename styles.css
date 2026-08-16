@@ -399,6 +399,120 @@ header {
     line-height: 1.6;
 }
 
+/* --- ECal: three-column to-do / calendar / classwork layout --- */
+
+.ecal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr 1fr;
+    gap: 20px;
+    width: 100%;
+    max-width: 1100px;
+}
+
+@media (max-width: 900px) {
+    .ecal-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.ecal-column {
+    width: 100%;
+    max-width: none;
+}
+
+.ecal-add-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.ecal-add-form input,
+.ecal-add-form select {
+    flex: 1;
+    min-width: 100px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: var(--white);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.ecal-add-form input:focus,
+.ecal-add-form select:focus {
+    border-color: rgba(162, 196, 214, 0.3);
+}
+
+.ecal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ecal-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ecal-item input[type="checkbox"] {
+    margin-top: 3px;
+    accent-color: #4a90d9;
+    cursor: pointer;
+}
+
+.ecal-item.completed .ecal-item-title {
+    text-decoration: line-through;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.ecal-item-body {
+    flex: 1;
+}
+
+.ecal-item-title {
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.ecal-item-meta {
+    font-size: 0.72rem;
+    color: #92c2dd;
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ecal-delete-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color 0.15s ease;
+}
+
+.ecal-delete-btn:hover {
+    color: #ff7676;
+}
+
+.ecal-empty {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.35);
+    text-align: center;
+    padding: 12px 0;
+}
+
 section#home {
     flex-grow: 1;
     display: flex;
