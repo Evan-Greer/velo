@@ -10,9 +10,25 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const VELO_TABS = [
     { id: 'ecal', label: 'ECal', href: 'ecal.html' },
     { id: 'immerse', label: 'Immerse', href: 'immerse.html' },
-    { id: 'dps', label: '✝', href: 'dps.html', title: 'Daily Prayer & Saint' },
-    { id: 'log', label: 'Log', href: 'log.html', title: 'Thankful For' }
+    { id: 'log', label: 'Log', href: 'log.html', title: 'Thankful For', pulseKey: 'velo_log_last_done' },
+    { id: 'dps', label: '✝', href: 'dps.html', title: 'Daily Prayer & Saint', pulseKey: 'velo_dps_last_seen' }
 ];
+
+// "Needs attention" pulse tracking for Log/DPS. Stores the last date (YYYY-MM-DD)
+// each was fulfilled; comparing against today's date is what makes it naturally
+// reset at midnight, with no timer/cron needed.
+function veloTodayString() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function veloNeedsPulse(key) {
+    return localStorage.getItem(key) !== veloTodayString();
+}
+
+function veloMarkDoneToday(key) {
+    localStorage.setItem(key, veloTodayString());
+}
 
 async function signInWithGoogle() {
     await sb.auth.signInWithOAuth({
@@ -35,9 +51,12 @@ function renderTabNav(activePage) {
     currentTabPage = activePage;
     const el = document.getElementById('tabNav');
     if (!el) return;
-    el.innerHTML = '<div class="tab-slider" id="tabSlider"></div>' + VELO_TABS.map(tab =>
-        `<a href="${tab.href}" class="tab-link${tab.id === activePage ? ' active' : ''}" data-tab="${tab.id}"${tab.title ? ` title="${tab.title}"` : ''}>${tab.label}</a>`
-    ).join('');
+    el.innerHTML = '<div class="tab-slider" id="tabSlider"></div>' + VELO_TABS.map(tab => {
+        const classes = ['tab-link'];
+        if (tab.id === activePage) classes.push('active');
+        if (tab.pulseKey && veloNeedsPulse(tab.pulseKey)) classes.push('needs-attention');
+        return `<a href="${tab.href}" class="${classes.join(' ')}" data-tab="${tab.id}"${tab.title ? ` title="${tab.title}"` : ''}>${tab.label}</a>`;
+    }).join('');
     positionTabSlider();
 }
 

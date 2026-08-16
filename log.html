@@ -25,6 +25,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="shared.js"></script>
     <script>
+        // TODO(Phase 3): call veloMarkDoneToday('velo_log_last_done') from the
+        // real journal entry form's submit handler, not on page load — the Log
+        // tab should keep pulsing until today's entry is actually written.
         initVeloNav('log');
     </script>
 </body>
