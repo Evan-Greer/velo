@@ -178,7 +178,7 @@ header {
 .user-dropdown {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    left: 50%;
     min-width: 140px;
     background: rgba(8, 10, 16, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -188,7 +188,7 @@ header {
     -webkit-backdrop-filter: blur(20px);
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translate(-50%, -6px);
     pointer-events: none;
     transition: opacity 0.18s ease, transform 0.18s ease;
     z-index: 500;
@@ -196,7 +196,7 @@ header {
 
 .user-dropdown.open {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate(-50%, 0);
     pointer-events: auto;
 }
 
