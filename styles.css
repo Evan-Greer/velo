@@ -25,6 +25,13 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* Content pages (Log, DPS, ECal, Immerse) can grow taller than the
+   viewport, unlike the fixed full-screen home/orb page -- they need
+   real scrolling instead of the home page's overflow:hidden. */
+body.scrollable-page {
+    overflow-y: auto;
+}
+
 /* Space scene sits behind interactive elements */
 #spaceCanvasContainer {
     position: fixed;

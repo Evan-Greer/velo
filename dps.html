@@ -5,9 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VELO — Daily Prayer & Saint</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .dps-prayer-card {
+            text-align: center;
+        }
+
+        .dps-prayer-card p {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.35rem;
+            font-style: italic;
+            line-height: 1.85;
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .dps-saint-card h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-weight: 600;
+            font-size: 1.9rem;
+            text-transform: none;
+            letter-spacing: 0.02em;
+            text-align: center;
+            color: var(--white);
+            margin-bottom: 20px;
+        }
+
+        .dps-bio {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.1rem;
+            line-height: 1.9;
+            color: rgba(255, 255, 255, 0.85);
+            min-height: 1.9em;
+        }
+    </style>
 </head>
-<body>
+<body class="scrollable-page">
 
     <header>
         <a href="index.html" class="logo">VELO</a>
@@ -87,6 +120,14 @@
             }
         }
 
+        function buildBioText(celebration, reflection) {
+            const parts = [];
+            if (celebration.quote) parts.push(`"${celebration.quote}"`);
+            if (celebration.description) parts.push(celebration.description);
+            if (reflection) parts.push(reflection);
+            return parts.join(' ');
+        }
+
         function dpsCacheKey() {
             return 'velo_dps_cache_' + veloTodayString();
         }
@@ -106,28 +147,33 @@
             } catch (e) {}
         }
 
-        function renderPage(celebration, reflection, prayer) {
-            const pageMain = document.getElementById('pageMain');
-            pageMain.innerHTML = `
-                <div class="content-card">
-                    <h1>${prayer.title}</h1>
-                    <p class="subtitle">Prayer of the Day</p>
-                    <p class="entry-text">${prayer.text}</p>
+        function renderShell(prayer, celebrationName) {
+            document.getElementById('pageMain').innerHTML = `
+                <div class="content-card dps-prayer-card">
+                    <p>${prayer.text}</p>
                 </div>
-                <div class="content-card">
-                    <h1>${celebration.name}</h1>
-                    <p class="subtitle">${celebration.type}</p>
-                    ${celebration.image ? `<img src="${celebration.image}" alt="" style="width:100%;border-radius:16px;margin-bottom:18px;">` : ''}
-                    ${celebration.quote ? `<p class="entry-text" style="font-style:italic;margin-bottom:14px;">"${celebration.quote}"</p>` : ''}
-                    ${celebration.description ? `<p class="entry-text" style="margin-bottom:14px;">${celebration.description}</p>` : ''}
-                    <p class="entry-text" id="dpsReflection">${reflection || "Writing today's reflection…"}</p>
+                <div class="content-card dps-saint-card">
+                    <h1>${celebrationName}</h1>
+                    <p class="dps-bio" id="dpsBio"></p>
                 </div>
             `;
         }
 
-        function renderReflection(text) {
-            const el = document.getElementById('dpsReflection');
-            if (el) el.textContent = text;
+        function typeOutText(el, text) {
+            return new Promise((resolve) => {
+                const words = text.split(/(\s+)/);
+                let i = 0;
+                function next() {
+                    if (i < words.length) {
+                        el.textContent = words.slice(0, i + 1).join('');
+                        i++;
+                        setTimeout(next, Math.random() * 12 + 6);
+                    } else {
+                        resolve();
+                    }
+                }
+                next();
+            });
         }
 
         async function initDpsPage() {
@@ -136,7 +182,8 @@
 
             const cached = loadDpsCache();
             if (cached) {
-                renderPage(cached.celebration, cached.reflection, cached.prayer);
+                renderShell(cached.prayer, cached.celebration.name);
+                document.getElementById('dpsBio').textContent = buildBioText(cached.celebration, cached.reflection);
                 return;
             }
 
@@ -145,10 +192,10 @@
                 const celebration = data.celebration;
                 const prayer = todaysPrayer();
 
-                renderPage(celebration, '', prayer);
+                renderShell(prayer, celebration.name);
 
                 const reflection = await fetchReflection(celebration);
-                renderReflection(reflection);
+                await typeOutText(document.getElementById('dpsBio'), buildBioText(celebration, reflection));
                 saveDpsCache({ celebration, prayer, reflection });
             } catch (e) {
                 document.getElementById('pageMain').innerHTML = `
