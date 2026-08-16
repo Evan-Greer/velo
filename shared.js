@@ -74,14 +74,13 @@ function renderAuthControl(session) {
     if (session && session.user) {
         const rawName = session.user.user_metadata?.full_name || session.user.email;
         const avatar = session.user.user_metadata?.avatar_url;
-        const [firstName, ...restName] = rawName.split(' ');
-        const lastName = restName.join(' ');
+        const firstName = rawName.split(' ')[0];
 
         el.innerHTML = `
             <div class="user-menu-wrapper">
                 <button class="user-chip" id="userChipBtn" type="button">
                     ${avatar ? `<img src="${avatar}" alt="">` : ''}
-                    <span class="chip-first">${firstName}</span>${lastName ? `<span class="chip-last">${lastName}</span>` : ''}
+                    <span>${firstName}</span>
                 </button>
                 <div class="user-dropdown" id="userDropdown">
                     <button class="dropdown-item" id="signOutBtn" type="button">Sign Out</button>
