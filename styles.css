@@ -203,7 +203,7 @@ header {
 .dropdown-item {
     display: block;
     width: 100%;
-    text-align: left;
+    text-align: center;
     background: none;
     border: none;
     font-family: inherit;
