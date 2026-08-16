@@ -38,15 +38,34 @@
             return DPS_PRAYERS[dayOfYear() % DPS_PRAYERS.length];
         }
 
+        async function fetchCelebrationForDate(year, month, day) {
+            const url = `https://cpbjr.github.io/catholic-readings-api/liturgical-calendar/${year}/${month}-${day}.json`;
+            const res = await fetch(url);
+            if (!res.ok) return null;
+            return res.json();
+        }
+
         async function fetchTodaysCelebration() {
             const now = new Date();
-            const y = now.getFullYear();
             const m = String(now.getMonth() + 1).padStart(2, '0');
             const d = String(now.getDate()).padStart(2, '0');
-            const url = `https://cpbjr.github.io/catholic-readings-api/liturgical-calendar/${y}/${m}-${d}.json`;
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('calendar fetch failed');
-            return res.json();
+
+            let data = await fetchCelebrationForDate(now.getFullYear(), m, d);
+
+            // Sundays/solemnities outrank saint memorials liturgically, so the
+            // API returns just the season name with no saint bio on those days.
+            // The saint tied to this calendar date still exists in years where
+            // it wasn't superseded -- fall back to find it there.
+            if (!data || !data.celebration?.description) {
+                const fallback = (await fetchCelebrationForDate(2025, m, d)) || (await fetchCelebrationForDate(2027, m, d));
+                if (fallback && fallback.celebration?.description) {
+                    data = fallback;
+                } else if (!data) {
+                    throw new Error('calendar fetch failed');
+                }
+            }
+
+            return data;
         }
 
         async function fetchReflection(celebration) {
