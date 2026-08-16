@@ -129,6 +129,53 @@ header {
     color: var(--white);
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.icon-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.icon-circle {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.65);
+    text-decoration: none;
+    font-size: 1.05rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.icon-circle:hover {
+    background: rgba(162, 196, 214, 0.15);
+    border-color: rgba(162, 196, 214, 0.25);
+    color: var(--white);
+}
+
+.icon-circle.active {
+    background: rgba(162, 196, 214, 0.14);
+    border-color: rgba(162, 196, 214, 0.25);
+    color: var(--white);
+}
+
+.icon-circle.icon-log {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 .auth-control {
     display: flex;
     align-items: center;

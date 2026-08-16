@@ -9,8 +9,12 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const VELO_TABS = [
     { id: 'ecal', label: 'ECal', href: 'ecal.html' },
-    { id: 'log', label: 'Log', href: 'log.html' },
     { id: 'immerse', label: 'Immerse', href: 'immerse.html' }
+];
+
+const VELO_ICON_LINKS = [
+    { id: 'dps', href: 'dps.html', symbol: '✝', extraClass: 'icon-cross', title: 'Daily Prayer & Saint' },
+    { id: 'log', href: 'log.html', symbol: 'Log', extraClass: 'icon-log', title: 'Thankful For' }
 ];
 
 async function signInWithGoogle() {
@@ -97,8 +101,17 @@ function renderAuthControl(session) {
     }
 }
 
+function renderIconNav(activePage) {
+    const el = document.getElementById('iconNav');
+    if (!el) return;
+    el.innerHTML = VELO_ICON_LINKS.map(link =>
+        `<a href="${link.href}" class="icon-circle ${link.extraClass}${link.id === activePage ? ' active' : ''}" title="${link.title}">${link.symbol}</a>`
+    ).join('');
+}
+
 async function initVeloNav(activePage) {
     renderTabNav(activePage);
+    renderIconNav(activePage);
 
     const { data: { session } } = await sb.auth.getSession();
     renderAuthControl(session);
