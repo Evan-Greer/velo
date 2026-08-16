@@ -132,6 +132,8 @@ header {
 
 .tab-link[data-tab="dps"] {
     font-size: 1.15rem;
+    position: relative;
+    top: -2px;
 }
 
 @keyframes velo-pulse {
