@@ -1500,6 +1500,18 @@ header {
     font-size: 0.8rem;
 }
 
+.cal-field-row .cal-end-day-badge {
+    flex-shrink: 0;
+    background: rgba(162, 196, 214, 0.16);
+    border: 1px solid rgba(162, 196, 214, 0.35);
+    color: #cfe4ef;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 999px;
+    cursor: default;
+}
+
 .cal-color-picker {
     display: flex;
     gap: 8px;

@@ -41,6 +41,7 @@
                                 <input type="time" id="calFieldStartTime">
                                 <span id="calTimeToLabel">to</span>
                                 <input type="time" id="calFieldEndTime">
+                                <span id="calEndDayBadge" class="cal-end-day-badge" style="display:none" title="Ends the next day">+1</span>
                             </div>
                             <select id="calFieldRecurrence">
                                 <option value="none">Does not repeat</option>
@@ -1280,13 +1281,25 @@
             document.getElementById('calModalOverlay').classList.add('open');
         }
 
+        function eventCrossesMidnight() {
+            const startVal = document.getElementById('calFieldStartTime').value;
+            const endVal = document.getElementById('calFieldEndTime').value;
+            return !!(startVal && endVal && endVal <= startVal);
+        }
+
+        function updateEndDayBadge() {
+            const allDay = document.getElementById('calFieldAllDay').checked;
+            document.getElementById('calEndDayBadge').style.display = (!allDay && eventCrossesMidnight()) ? '' : 'none';
+        }
+
         function formatRowTimeSummary() {
             const allDay = document.getElementById('calFieldAllDay').checked;
             const dateVal = document.getElementById('calFieldDate').value;
             if (!dateVal) return 'Add date';
 
             const [y, m, d] = dateVal.split('-').map(Number);
-            const dateLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+            const startDateObj = new Date(y, m - 1, d);
+            const dateLabel = startDateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
             if (allDay) return `${dateLabel} · All day`;
 
@@ -1299,6 +1312,14 @@
                 const d2 = new Date(2000, 0, 1, h, min);
                 return d2.toLocaleTimeString(undefined, { hour: 'numeric', minute: min ? '2-digit' : undefined });
             };
+
+            if (eventCrossesMidnight()) {
+                const endDateObj = new Date(startDateObj);
+                endDateObj.setDate(endDateObj.getDate() + 1);
+                const endDateLabel = endDateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                return `${dateLabel} ${fmt(startVal)} – ${endDateLabel} ${fmt(endVal)}`;
+            }
+
             return `${dateLabel} · ${fmt(startVal)} – ${fmt(endVal)}`;
         }
 
@@ -1312,6 +1333,7 @@
 
         function renderRowSummaries() {
             document.getElementById('calRowTimeSummary').textContent = formatRowTimeSummary();
+            updateEndDayBadge();
 
             const guestSummary = document.getElementById('calRowGuestsSummary');
             guestSummary.textContent = calGuestList.length
@@ -1365,8 +1387,21 @@
                 const startTime = document.getElementById('calFieldStartTime').value || '09:00';
                 const endTime = document.getElementById('calFieldEndTime').value || '10:00';
                 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+                // An end time that's clock-earlier than the start time (e.g.
+                // 10pm - 1am) means it crosses midnight into the next day --
+                // same default Google Calendar's own "+1" button applies.
+                // Both times used to be stamped onto the same date, so the
+                // API rejected the event for ending before it started.
+                let endDate = date;
+                if (endTime <= startTime) {
+                    const d = new Date(date + 'T00:00:00');
+                    d.setDate(d.getDate() + 1);
+                    endDate = dateToISO(d);
+                }
+
                 start = { dateTime: `${date}T${startTime}:00`, timeZone: tz };
-                end = { dateTime: `${date}T${endTime}:00`, timeZone: tz };
+                end = { dateTime: `${endDate}T${endTime}:00`, timeZone: tz };
             }
 
             const payload = {
