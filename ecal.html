@@ -539,8 +539,8 @@
                     if (!e.start.dateTime) return '';
                     const startMin = timeToMinutes(e.start.dateTime);
                     const endMin = e.end.dateTime ? timeToMinutes(e.end.dateTime) : startMin + 60;
-                    const top = (startMin / 60) * CAL_ROW_H;
-                    const height = Math.max(((endMin - startMin) / 60) * CAL_ROW_H, 20);
+                    const top = (startMin / 60) * CAL_ROW_H + 1.5;
+                    const height = Math.max(((endMin - startMin) / 60) * CAL_ROW_H - 3, 17);
                     return `<div class="cal-time-event" data-event-id="${e.id}" style="top:${top}px;height:${height}px;background:${colorHex(e.colorId)}33;border-left:3px solid ${colorHex(e.colorId)}" title="${escapeHtml(e.summary || '(untitled)')}">${escapeHtml(e.summary || '(untitled)')}</div>`;
                 }).join('');
                 return `<div class="cal-time-day-col">${slots}${events}</div>`;
