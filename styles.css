@@ -740,6 +740,11 @@ header {
     background: rgba(255, 255, 255, 0.04);
 }
 
+.cal-cell.drag-over {
+    background: rgba(162, 196, 214, 0.12);
+    border-color: rgba(162, 196, 214, 0.4);
+}
+
 .cal-cell.empty {
     background: none;
     border: none;
@@ -817,6 +822,59 @@ header {
 .cal-view-btn.active {
     background: rgba(162, 196, 214, 0.14);
     color: #fff;
+}
+
+.cal-calendars-wrap {
+    position: relative;
+    margin-left: 8px;
+}
+
+.cal-calendars-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 200px;
+    background: #14141a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 10px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+
+.cal-calendars-dropdown.open {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cal-calendar-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.cal-calendar-toggle-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.cal-calendar-toggle-row input {
+    width: auto;
+    accent-color: #a2c4d6;
+}
+
+.cal-calendar-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
 /* --- ECal: week/day time grid --- */
@@ -936,8 +994,17 @@ header {
     font-size: 0.68rem;
     color: #fff;
     overflow: hidden;
-    cursor: pointer;
+    cursor: grab;
     z-index: 2;
+}
+
+.cal-time-event-resize {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 6px;
+    cursor: ns-resize;
 }
 
 .cal-drag-ghost {
@@ -1055,6 +1122,12 @@ header {
     width: auto;
     accent-color: #4a90d9;
     cursor: pointer;
+}
+
+.cal-recurring-note {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
+    margin-top: -4px;
 }
 
 .cal-field-row {

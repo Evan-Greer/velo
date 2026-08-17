@@ -40,6 +40,15 @@
                     <input type="time" id="calFieldEndTime">
                 </div>
 
+                <select id="calFieldRecurrence">
+                    <option value="none">Does not repeat</option>
+                    <option value="DAILY">Daily</option>
+                    <option value="WEEKLY">Weekly</option>
+                    <option value="MONTHLY">Monthly</option>
+                    <option value="YEARLY">Yearly</option>
+                </select>
+                <p class="cal-recurring-note" id="calRecurringNote" style="display:none">This event repeats. Editing or deleting only affects this occurrence.</p>
+
                 <input type="text" id="calFieldLocation" placeholder="Location">
                 <textarea id="calFieldDescription" placeholder="Description" rows="3"></textarea>
 
@@ -311,11 +320,24 @@
         let calGuestList = [];
         let calSelectedColorId = '';
         let calEditingEventId = null;
+        let calEditingEventCalId = 'primary';
+        let calUserId = null;
+        let calAllCalendars = [];
+        let calSelectedCalendarIds = new Set(['primary']);
         const CAL_ROW_H = 48;
 
         function colorHex(colorId) {
             const match = CAL_COLORS.find(c => c.id === (colorId || ''));
             return match ? match.hex : CAL_COLORS[0].hex;
+        }
+
+        function eventColor(e) {
+            if (e.colorId) return colorHex(e.colorId);
+            return e._calColor || CAL_COLORS[0].hex;
+        }
+
+        function calEventsUrl(calendarId) {
+            return `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId || 'primary')}/events`;
         }
 
         function dateToISO(d) {
@@ -340,8 +362,8 @@
             return d;
         }
 
-        async function fetchCalendarEventsRange(accessToken, minDate, maxDate) {
-            const url = `${CAL_API_BASE}?timeMin=${encodeURIComponent(minDate.toISOString())}&timeMax=${encodeURIComponent(maxDate.toISOString())}&singleEvents=true&orderBy=startTime&maxResults=250`;
+        async function fetchCalendarEventsRange(accessToken, calendarId, minDate, maxDate) {
+            const url = `${calEventsUrl(calendarId)}?timeMin=${encodeURIComponent(minDate.toISOString())}&timeMax=${encodeURIComponent(maxDate.toISOString())}&singleEvents=true&orderBy=startTime&maxResults=250`;
 
             const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
 
@@ -350,6 +372,79 @@
 
             const data = await res.json();
             return data.items || [];
+        }
+
+        function calStorageKey() {
+            return `velo_ecal_calendars_${calUserId}`;
+        }
+
+        function loadSavedCalendarSelection() {
+            try {
+                const raw = localStorage.getItem(calStorageKey());
+                return raw ? new Set(JSON.parse(raw)) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function saveCalendarSelection() {
+            try {
+                localStorage.setItem(calStorageKey(), JSON.stringify([...calSelectedCalendarIds]));
+            } catch (e) {}
+        }
+
+        async function fetchCalendarList(accessToken) {
+            const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            if (res.status === 401) throw { tokenExpired: true };
+            if (!res.ok) return [];
+            const data = await res.json();
+            return (data.items || []).map(c => ({
+                id: c.id,
+                summary: c.primary ? 'My Calendar' : (c.summary || c.id),
+                color: c.backgroundColor || CAL_COLORS[0].hex,
+                primary: !!c.primary
+            }));
+        }
+
+        async function initCalendarList() {
+            calAllCalendars = await fetchCalendarList(calAccessToken);
+            if (!calAllCalendars.some(c => c.primary)) {
+                calAllCalendars.unshift({ id: 'primary', summary: 'My Calendar', color: CAL_COLORS[0].hex, primary: true });
+            }
+
+            const saved = loadSavedCalendarSelection();
+            if (saved) {
+                calSelectedCalendarIds = new Set([...saved].filter(id => calAllCalendars.some(c => c.id === id)));
+                if (!calSelectedCalendarIds.size) calSelectedCalendarIds = new Set(calAllCalendars.filter(c => c.primary).map(c => c.id));
+            } else {
+                calSelectedCalendarIds = new Set(calAllCalendars.map(c => c.id));
+            }
+
+            renderCalendarsDropdown();
+        }
+
+        function calendarColorFor(calendarId) {
+            const match = calAllCalendars.find(c => c.id === calendarId);
+            return match ? match.color : CAL_COLORS[0].hex;
+        }
+
+        async function fetchAllCalendarEvents(minDate, maxDate) {
+            const ids = [...calSelectedCalendarIds];
+            if (!ids.length) return [];
+
+            const results = await Promise.all(ids.map(async (id) => {
+                try {
+                    const events = await fetchCalendarEventsRange(calAccessToken, id, minDate, maxDate);
+                    return events.map(e => ({ ...e, _calId: id, _calColor: calendarColorFor(id) }));
+                } catch (e) {
+                    if (e.tokenExpired) throw e;
+                    return [];
+                }
+            }));
+
+            return results.flat();
         }
 
         function groupEventsByDate(events) {
@@ -390,14 +485,68 @@
                         <button type="button" class="cal-view-btn" data-view="week">Week</button>
                         <button type="button" class="cal-view-btn" data-view="day">Day</button>
                     </div>
+                    <div class="cal-calendars-wrap">
+                        <button type="button" class="cal-nav-btn cal-calendars-btn" id="calCalendarsBtn" title="Calendars">☰</button>
+                        <div class="cal-calendars-dropdown" id="calCalendarsDropdown"></div>
+                    </div>
                     <button type="button" class="ecal-add-btn cal-add-event-btn" id="calAddEventBtn">+ Add Event</button>
                 </div>
                 <div id="calBody"></div>
             `;
         }
 
+        function renderCalendarsDropdown() {
+            const el = document.getElementById('calCalendarsDropdown');
+            if (!el) return;
+            el.innerHTML = calAllCalendars.map(c => `
+                <label class="cal-calendar-toggle-row">
+                    <input type="checkbox" data-cal-id="${escapeHtml(c.id)}" ${calSelectedCalendarIds.has(c.id) ? 'checked' : ''}>
+                    <span class="cal-calendar-dot" style="background:${c.color}"></span>
+                    ${escapeHtml(c.summary)}
+                </label>
+            `).join('');
+        }
+
+        function wireCalendarsDropdown() {
+            const btn = document.getElementById('calCalendarsBtn');
+            const dropdown = document.getElementById('calCalendarsDropdown');
+
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('open');
+            };
+
+            dropdown.onclick = (e) => e.stopPropagation();
+
+            dropdown.addEventListener('change', (e) => {
+                const cb = e.target.closest('input[type="checkbox"]');
+                if (!cb) return;
+                const id = cb.dataset.calId;
+                if (cb.checked) calSelectedCalendarIds.add(id);
+                else calSelectedCalendarIds.delete(id);
+                if (!calSelectedCalendarIds.size) {
+                    calSelectedCalendarIds.add(id);
+                    cb.checked = true;
+                    return;
+                }
+                saveCalendarSelection();
+                refreshCalendar();
+            });
+
+            document.addEventListener('click', () => dropdown.classList.remove('open'));
+        }
+
+        let calSuppressNextClick = false;
+
+        function suppressNextClick() {
+            calSuppressNextClick = true;
+            setTimeout(() => { calSuppressNextClick = false; }, 300);
+        }
+
         function wireGridClicks(container) {
             container.onclick = (e) => {
+                if (calSuppressNextClick) { calSuppressNextClick = false; return; }
+
                 const chip = e.target.closest('.cal-event-chip, .cal-time-event');
                 if (chip) {
                     const event = calEventsById[chip.dataset.eventId];
@@ -427,11 +576,85 @@
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
 
+        async function patchEventStartEnd(event, start, end) {
+            const res = await fetch(`${calEventsUrl(event._calId)}/${event.id}?sendUpdates=all`, {
+                method: 'PATCH',
+                headers: { Authorization: `Bearer ${calAccessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ start, end })
+            });
+            if (res.status === 401) { renderCalendarReconnect(); return; }
+            if (!res.ok) { alert("Couldn't reschedule that event."); return; }
+            refreshCalendar();
+        }
+
+        async function patchEventTime(eventId, startMinutes, endMinutes, newDate) {
+            const event = calEventsById[eventId];
+            if (!event) return;
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            await patchEventStartEnd(event,
+                { dateTime: `${newDate}T${minutesToTimeStr(startMinutes)}:00`, timeZone: tz },
+                { dateTime: `${newDate}T${minutesToTimeStr(endMinutes)}:00`, timeZone: tz }
+            );
+        }
+
+        async function shiftEventByDays(event, dayDelta) {
+            const shiftDate = (dateStr) => {
+                const d = new Date(dateStr + 'T00:00:00');
+                d.setDate(d.getDate() + dayDelta);
+                return dateToISO(d);
+            };
+
+            if (event.start.date) {
+                await patchEventStartEnd(event, { date: shiftDate(event.start.date) }, { date: shiftDate(event.end.date) });
+            } else {
+                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                await patchEventStartEnd(event,
+                    { dateTime: `${shiftDate(event.start.dateTime.slice(0, 10))}T${event.start.dateTime.slice(11, 19)}`, timeZone: tz },
+                    { dateTime: `${shiftDate(event.end.dateTime.slice(0, 10))}T${event.end.dateTime.slice(11, 19)}`, timeZone: tz }
+                );
+            }
+        }
+
         let calDragState = null;
 
         function wireTimeGridDrag(container) {
             container.addEventListener('mousedown', (e) => {
-                if (e.target.closest('.cal-time-event')) return;
+                const resizeHandle = e.target.closest('.cal-time-event-resize');
+                const eventEl = e.target.closest('.cal-time-event');
+
+                if (resizeHandle) {
+                    const eventId = resizeHandle.dataset.eventId;
+                    const event = calEventsById[eventId];
+                    if (!event || !event.start.dateTime) return;
+                    const startMin = timeToMinutes(event.start.dateTime);
+                    const endMin = event.end.dateTime ? timeToMinutes(event.end.dateTime) : startMin + 60;
+                    calDragState = {
+                        mode: 'resize', eventId, col: eventEl.closest('.cal-time-day-col'),
+                        startMinutes: startMin, currentEndMinutes: endMin, el: eventEl, moved: false
+                    };
+                    e.preventDefault();
+                    return;
+                }
+
+                if (eventEl) {
+                    const eventId = eventEl.dataset.eventId;
+                    const event = calEventsById[eventId];
+                    if (!event || !event.start.dateTime) return;
+                    const startMin = timeToMinutes(event.start.dateTime);
+                    const endMin = event.end.dateTime ? timeToMinutes(event.end.dateTime) : startMin + 60;
+                    const col = eventEl.closest('.cal-time-day-col');
+                    const colRect = col.getBoundingClientRect();
+                    const grabMinutes = ((e.clientY - colRect.top) / CAL_ROW_H) * 60;
+                    calDragState = {
+                        mode: 'move', eventId, duration: endMin - startMin,
+                        grabOffsetMinutes: startMin - grabMinutes,
+                        currentStartMinutes: startMin, origDate: col.dataset.date, currentDate: col.dataset.date,
+                        el: eventEl, moved: false, startY: e.clientY
+                    };
+                    e.preventDefault();
+                    return;
+                }
+
                 const col = e.target.closest('.cal-time-day-col');
                 if (!col) return;
 
@@ -444,35 +667,123 @@
                 ghost.style.height = '4px';
                 col.appendChild(ghost);
 
-                calDragState = { date: col.dataset.date, col, startMinutes, currentMinutes: startMinutes, ghostEl: ghost };
+                calDragState = { mode: 'create', date: col.dataset.date, col, startMinutes, currentMinutes: startMinutes, ghostEl: ghost };
                 e.preventDefault();
             });
         }
 
         document.addEventListener('mousemove', (e) => {
             if (!calDragState) return;
-            const rect = calDragState.col.getBoundingClientRect();
-            const minutes = snapTo15(Math.max(0, Math.min(1440, ((e.clientY - rect.top) / CAL_ROW_H) * 60)));
-            calDragState.currentMinutes = minutes;
 
-            const top = Math.min(calDragState.startMinutes, minutes);
-            const bottom = Math.max(calDragState.startMinutes, minutes);
-            calDragState.ghostEl.style.top = (top / 60 * CAL_ROW_H) + 'px';
-            calDragState.ghostEl.style.height = Math.max((bottom - top) / 60 * CAL_ROW_H, 4) + 'px';
+            if (calDragState.mode === 'create') {
+                const rect = calDragState.col.getBoundingClientRect();
+                const minutes = snapTo15(Math.max(0, Math.min(1440, ((e.clientY - rect.top) / CAL_ROW_H) * 60)));
+                calDragState.currentMinutes = minutes;
+
+                const top = Math.min(calDragState.startMinutes, minutes);
+                const bottom = Math.max(calDragState.startMinutes, minutes);
+                calDragState.ghostEl.style.top = (top / 60 * CAL_ROW_H) + 'px';
+                calDragState.ghostEl.style.height = Math.max((bottom - top) / 60 * CAL_ROW_H, 4) + 'px';
+                return;
+            }
+
+            if (calDragState.mode === 'resize') {
+                const rect = calDragState.col.getBoundingClientRect();
+                const minutes = snapTo15(Math.max(0, Math.min(1440, ((e.clientY - rect.top) / CAL_ROW_H) * 60)));
+                const newEnd = Math.max(calDragState.startMinutes + 15, minutes);
+                if (newEnd !== calDragState.currentEndMinutes) calDragState.moved = true;
+                calDragState.currentEndMinutes = newEnd;
+                calDragState.el.style.height = Math.max(((newEnd - calDragState.startMinutes) / 60) * CAL_ROW_H - 3, 17) + 'px';
+                return;
+            }
+
+            if (calDragState.mode === 'move') {
+                if (Math.abs(e.clientY - calDragState.startY) > 4) calDragState.moved = true;
+
+                const hoverCol = document.elementFromPoint(e.clientX, e.clientY)?.closest('.cal-time-day-col');
+                const targetCol = hoverCol || calDragState.el.closest('.cal-time-day-col');
+                const rect = targetCol.getBoundingClientRect();
+                const pointerMinutes = ((e.clientY - rect.top) / CAL_ROW_H) * 60 + calDragState.grabOffsetMinutes;
+                let newStart = snapTo15(Math.max(0, Math.min(1440 - calDragState.duration, pointerMinutes)));
+
+                if (newStart !== calDragState.currentStartMinutes || targetCol.dataset.date !== calDragState.currentDate) {
+                    calDragState.moved = true;
+                }
+                calDragState.currentStartMinutes = newStart;
+                calDragState.currentDate = targetCol.dataset.date;
+
+                if (targetCol !== calDragState.el.parentElement) targetCol.appendChild(calDragState.el);
+                calDragState.el.style.top = (newStart / 60 * CAL_ROW_H + 1.5) + 'px';
+            }
         });
 
-        document.addEventListener('mouseup', () => {
+        document.addEventListener('mouseup', async () => {
             if (!calDragState) return;
-            const { date, startMinutes, currentMinutes, ghostEl } = calDragState;
-            ghostEl.remove();
+            const state = calDragState;
             calDragState = null;
 
-            let start = Math.min(startMinutes, currentMinutes);
-            let end = Math.max(startMinutes, currentMinutes);
-            if (end - start < 15) end = start + 30; // plain click/tap -> 30min default, not a real drag
+            if (state.mode === 'create') {
+                state.ghostEl.remove();
+                let start = Math.min(state.startMinutes, state.currentMinutes);
+                let end = Math.max(state.startMinutes, state.currentMinutes);
+                if (end - start < 15) end = start + 30; // plain click/tap -> 30min default, not a real drag
+                openEventModal(null, state.date, start, end);
+                return;
+            }
 
-            openEventModal(null, date, start, end);
+            if (state.mode === 'resize') {
+                if (!state.moved) return;
+                suppressNextClick();
+                await patchEventTime(state.eventId, state.startMinutes, state.currentEndMinutes, state.col.dataset.date);
+                return;
+            }
+
+            if (state.mode === 'move') {
+                if (!state.moved) return; // plain click on the event -- let the click handler open it
+                suppressNextClick();
+                await patchEventTime(state.eventId, state.currentStartMinutes, state.currentStartMinutes + state.duration, state.currentDate);
+            }
         });
+
+        function wireMonthGridDrag(container) {
+            container.addEventListener('dragstart', (e) => {
+                const chip = e.target.closest('.cal-event-chip');
+                if (!chip) return;
+                e.dataTransfer.setData('text/plain', chip.dataset.eventId);
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            container.addEventListener('dragover', (e) => {
+                const cell = e.target.closest('.cal-cell');
+                if (!cell || cell.classList.contains('empty')) return;
+                e.preventDefault();
+                cell.classList.add('drag-over');
+            });
+
+            container.addEventListener('dragleave', (e) => {
+                const cell = e.target.closest('.cal-cell');
+                if (cell) cell.classList.remove('drag-over');
+            });
+
+            container.addEventListener('drop', async (e) => {
+                const cell = e.target.closest('.cal-cell');
+                if (!cell || cell.classList.contains('empty')) return;
+                e.preventDefault();
+                cell.classList.remove('drag-over');
+                suppressNextClick();
+
+                const eventId = e.dataTransfer.getData('text/plain');
+                const event = calEventsById[eventId];
+                if (!event) return;
+
+                const origDate = event.start.date || event.start.dateTime.slice(0, 10);
+                const newDate = cell.dataset.date;
+                if (origDate === newDate) return;
+
+                const dayDelta = Math.round((new Date(newDate + 'T00:00:00') - new Date(origDate + 'T00:00:00')) / 86400000);
+                await shiftEventByDays(event, dayDelta);
+            });
+        }
 
         function renderMonthGrid(year, month, eventsByDate) {
             document.getElementById('calMonthLabel').textContent =
@@ -490,7 +801,7 @@
                 cells += `
                     <div class="cal-cell${dateStr === today ? ' today' : ''}" data-date="${dateStr}">
                         <div class="cal-day-num">${d}</div>
-                        ${dayEvents.slice(0, 3).map(e => `<div class="cal-event-chip" data-event-id="${e.id}" style="background:${colorHex(e.colorId)}22;color:${colorHex(e.colorId)}" title="${escapeHtml(e.summary || '(untitled)')}">${escapeHtml(e.summary || '(untitled)')}</div>`).join('')}
+                        ${dayEvents.slice(0, 3).map(e => `<div class="cal-event-chip" data-event-id="${e.id}" draggable="true" style="background:${eventColor(e)}22;color:${eventColor(e)}" title="${escapeHtml(e.summary || '(untitled)')}">${escapeHtml(e.summary || '(untitled)')}</div>`).join('')}
                         ${dayEvents.length > 3 ? `<div class="cal-more">+${dayEvents.length - 3} more</div>` : ''}
                     </div>
                 `;
@@ -504,6 +815,7 @@
                 <div class="cal-grid" id="calGrid">${cells}</div>
             `;
             wireGridClicks(document.getElementById('calGrid'));
+            wireMonthGridDrag(document.getElementById('calGrid'));
         }
 
         function renderTimeGrid(days, eventsByDay, allDayByDay) {
@@ -521,7 +833,7 @@
                 const dateStr = dateToISO(d);
                 const events = allDayByDay[i] || [];
                 return `<div class="cal-allday-cell" data-date="${dateStr}">
-                    ${events.map(e => `<div class="cal-event-chip" data-event-id="${e.id}" style="background:${colorHex(e.colorId)}22;color:${colorHex(e.colorId)}">${escapeHtml(e.summary || '(untitled)')}</div>`).join('')}
+                    ${events.map(e => `<div class="cal-event-chip" data-event-id="${e.id}" style="background:${eventColor(e)}22;color:${eventColor(e)}">${escapeHtml(e.summary || '(untitled)')}</div>`).join('')}
                 </div>`;
             }).join('');
 
@@ -541,9 +853,9 @@
                     const endMin = e.end.dateTime ? timeToMinutes(e.end.dateTime) : startMin + 60;
                     const top = (startMin / 60) * CAL_ROW_H + 1.5;
                     const height = Math.max(((endMin - startMin) / 60) * CAL_ROW_H - 3, 17);
-                    return `<div class="cal-time-event" data-event-id="${e.id}" style="top:${top}px;height:${height}px;background:${colorHex(e.colorId)}33;border-left:3px solid ${colorHex(e.colorId)}" title="${escapeHtml(e.summary || '(untitled)')}">${escapeHtml(e.summary || '(untitled)')}</div>`;
+                    return `<div class="cal-time-event" data-event-id="${e.id}" style="top:${top}px;height:${height}px;background:${eventColor(e)}33;border-left:3px solid ${eventColor(e)}" title="${escapeHtml(e.summary || '(untitled)')}">${escapeHtml(e.summary || '(untitled)')}<div class="cal-time-event-resize" data-event-id="${e.id}"></div></div>`;
                 }).join('');
-                return `<div class="cal-time-day-col">${slots}${events}</div>`;
+                return `<div class="cal-time-day-col" data-date="${dateStr}">${slots}${events}</div>`;
             }).join('');
 
             const body = document.getElementById('calBody');
@@ -594,7 +906,7 @@
             const year = calViewDate.getFullYear();
             const month = calViewDate.getMonth();
             try {
-                const events = await fetchCalendarEventsRange(calAccessToken, new Date(year, month, 1), new Date(year, month + 1, 1));
+                const events = await fetchAllCalendarEvents(new Date(year, month, 1), new Date(year, month + 1, 1));
                 calEventsById = {};
                 events.forEach(e => { calEventsById[e.id] = e; });
                 renderMonthGrid(year, month, groupEventsByDate(events));
@@ -609,7 +921,7 @@
             const end = new Date(start); end.setDate(end.getDate() + 7);
 
             try {
-                const events = await fetchCalendarEventsRange(calAccessToken, start, end);
+                const events = await fetchAllCalendarEvents(start, end);
                 calEventsById = {};
                 events.forEach(e => { calEventsById[e.id] = e; });
 
@@ -633,7 +945,7 @@
             const days = [start];
 
             try {
-                const events = await fetchCalendarEventsRange(calAccessToken, start, end);
+                const events = await fetchAllCalendarEvents(start, end);
                 calEventsById = {};
                 events.forEach(e => { calEventsById[e.id] = e; });
 
@@ -675,8 +987,14 @@
 
         function openEventModal(event, presetDate, presetStartMinutes, presetEndMinutes) {
             calEditingEventId = event ? event.id : null;
+            calEditingEventCalId = event ? (event._calId || 'primary') : 'primary';
             calGuestList = (event && event.attendees) ? event.attendees.map(a => a.email) : [];
             calSelectedColorId = event ? (event.colorId || '') : '';
+
+            const isRecurring = !!(event && (event.recurringEventId || (event.recurrence && event.recurrence.length)));
+            document.getElementById('calFieldRecurrence').value = 'none';
+            document.getElementById('calFieldRecurrence').style.display = event ? 'none' : '';
+            document.getElementById('calRecurringNote').style.display = isRecurring ? '' : 'none';
 
             document.getElementById('calModalTitle').textContent = event ? 'Edit Event' : 'New Event';
             document.getElementById('calFieldTitle').value = event ? (event.summary || '') : '';
@@ -758,7 +1076,13 @@
                 colorId: calSelectedColorId || undefined
             };
 
-            const url = calEditingEventId ? `${CAL_API_BASE}/${calEditingEventId}` : CAL_API_BASE;
+            if (!calEditingEventId) {
+                const recurrence = document.getElementById('calFieldRecurrence').value;
+                if (recurrence !== 'none') payload.recurrence = [`RRULE:FREQ=${recurrence}`];
+            }
+
+            const targetCalId = calEditingEventId ? calEditingEventCalId : 'primary';
+            const url = calEditingEventId ? `${calEventsUrl(targetCalId)}/${calEditingEventId}` : calEventsUrl(targetCalId);
             const method = calEditingEventId ? 'PATCH' : 'POST';
 
             const res = await fetch(`${url}?sendUpdates=all`, {
@@ -778,7 +1102,7 @@
             if (!calEditingEventId) return;
             if (!confirm('Delete this event?')) return;
 
-            const res = await fetch(`${CAL_API_BASE}/${calEditingEventId}?sendUpdates=all`, {
+            const res = await fetch(`${calEventsUrl(calEditingEventCalId)}/${calEditingEventId}?sendUpdates=all`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${calAccessToken}` }
             });
@@ -825,8 +1149,9 @@
             };
         }
 
-        function initCalendar(session) {
+        async function initCalendar(session) {
             calAccessToken = session.provider_token;
+            calUserId = session.user.id;
             if (!calAccessToken) {
                 renderCalendarReconnect();
                 return;
@@ -834,9 +1159,16 @@
 
             renderCalendarShell();
             wireEventModal();
+            wireCalendarsDropdown();
 
             calViewDate = new Date();
             calViewMode = 'month';
+
+            try {
+                await initCalendarList();
+            } catch (e) {
+                if (e.tokenExpired) { renderCalendarReconnect(); return; }
+            }
 
             document.getElementById('calPrevBtn').onclick = () => {
                 if (calViewMode === 'month') calViewDate.setMonth(calViewDate.getMonth() - 1);
