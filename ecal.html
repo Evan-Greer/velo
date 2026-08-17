@@ -360,6 +360,8 @@
         let calViewDate = new Date();
         let calViewMode = 'month';
         let calAccessToken = null;
+        let calRefreshToken = null;
+        let calRefreshInFlight = null;
         let calEventsById = {};
         let calGuestList = [];
         let calSelectedColorId = '';
@@ -382,6 +384,58 @@
 
         function calEventsUrl(calendarId) {
             return `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId || 'primary')}/events`;
+        }
+
+        // Google access tokens expire after ~1hr and Supabase doesn't renew
+        // them. Google also hands out a long-lived refresh token alongside
+        // it (captured at sign-in since access_type=offline is requested) --
+        // this trades that for a fresh access token server-side, since the
+        // exchange requires the OAuth client secret, which can never live in
+        // the browser. Concurrent 401s share one in-flight refresh instead
+        // of each firing their own.
+        async function refreshGoogleAccessToken() {
+            if (!calRefreshToken) return false;
+            if (calRefreshInFlight) return calRefreshInFlight;
+
+            calRefreshInFlight = (async () => {
+                try {
+                    const res = await fetch('https://vgkbefoasgqmainbmvhz.supabase.co/functions/v1/refresh-google-token', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ refresh_token: calRefreshToken })
+                    });
+                    if (!res.ok) return false;
+                    const data = await res.json();
+                    if (!data.access_token) return false;
+                    calAccessToken = data.access_token;
+                    return true;
+                } catch (e) {
+                    return false;
+                } finally {
+                    calRefreshInFlight = null;
+                }
+            })();
+
+            return calRefreshInFlight;
+        }
+
+        // Drop-in replacement for fetch() against the Google Calendar API --
+        // on a 401 it tries a silent refresh and retries the request once
+        // before giving up, so callers' existing `res.status === 401` checks
+        // only ever fire when reconnecting really is unavoidable (refresh
+        // token missing, revoked, or itself expired).
+        async function googleApiFetch(url, options = {}) {
+            const withAuth = (token) => ({
+                ...options,
+                headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` }
+            });
+
+            let res = await fetch(url, withAuth(calAccessToken));
+            if (res.status === 401) {
+                const refreshed = await refreshGoogleAccessToken();
+                if (refreshed) res = await fetch(url, withAuth(calAccessToken));
+            }
+            return res;
         }
 
         function dateToISO(d) {
@@ -409,7 +463,7 @@
         async function fetchCalendarEventsRange(accessToken, calendarId, minDate, maxDate) {
             const url = `${calEventsUrl(calendarId)}?timeMin=${encodeURIComponent(minDate.toISOString())}&timeMax=${encodeURIComponent(maxDate.toISOString())}&singleEvents=true&orderBy=startTime&maxResults=250`;
 
-            const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+            const res = await googleApiFetch(url);
 
             if (res.status === 401) throw { tokenExpired: true };
             if (!res.ok) throw new Error('Failed to load calendar events');
@@ -438,9 +492,7 @@
         }
 
         async function fetchCalendarList(accessToken) {
-            const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            });
+            const res = await googleApiFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList');
             if (res.status === 401) throw { tokenExpired: true };
             if (!res.ok) return [];
             const data = await res.json();
@@ -681,9 +733,9 @@
         }
 
         async function saveCalendarEdits(calId, name, hex) {
-            const res = await fetch(`https://www.googleapis.com/calendar/v3/users/me/calendarList/${encodeURIComponent(calId)}`, {
+            const res = await googleApiFetch(`https://www.googleapis.com/calendar/v3/users/me/calendarList/${encodeURIComponent(calId)}`, {
                 method: 'PATCH',
-                headers: { Authorization: `Bearer ${calAccessToken}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     summaryOverride: name,
                     backgroundColor: hex,
@@ -713,10 +765,7 @@
                 ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}`
                 : `https://www.googleapis.com/calendar/v3/users/me/calendarList/${encodeURIComponent(calId)}`;
 
-            const res = await fetch(url, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${calAccessToken}` }
-            });
+            const res = await googleApiFetch(url, { method: 'DELETE' });
 
             if (res.status === 401) { renderCalendarReconnect(); return false; }
             if (!res.ok && res.status !== 410) { alert("Couldn't remove that calendar."); return false; }
@@ -728,9 +777,9 @@
         }
 
         async function createNewCalendar(name, hex) {
-            const createRes = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+            const createRes = await googleApiFetch('https://www.googleapis.com/calendar/v3/calendars', {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${calAccessToken}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ summary: name })
             });
 
@@ -741,9 +790,9 @@
             // Newly created calendars start on Google's default color --
             // set ours via the same calendarList.patch used for editing so
             // it matches the swatch picked here.
-            await fetch(`https://www.googleapis.com/calendar/v3/users/me/calendarList/${encodeURIComponent(created.id)}`, {
+            await googleApiFetch(`https://www.googleapis.com/calendar/v3/users/me/calendarList/${encodeURIComponent(created.id)}`, {
                 method: 'PATCH',
-                headers: { Authorization: `Bearer ${calAccessToken}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ backgroundColor: hex, foregroundColor: contrastTextColor(hex) })
             });
 
@@ -927,9 +976,9 @@
         }
 
         async function patchEventStartEnd(event, start, end) {
-            const res = await fetch(`${calEventsUrl(event._calId)}/${event.id}?sendUpdates=all`, {
+            const res = await googleApiFetch(`${calEventsUrl(event._calId)}/${event.id}?sendUpdates=all`, {
                 method: 'PATCH',
-                headers: { Authorization: `Bearer ${calAccessToken}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ start, end })
             });
             if (res.status === 401) { renderCalendarReconnect(); return; }
@@ -1613,9 +1662,9 @@
             const url = calEditingEventId ? `${calEventsUrl(targetCalId)}/${calEditingEventId}` : calEventsUrl(targetCalId);
             const method = calEditingEventId ? 'PATCH' : 'POST';
 
-            const res = await fetch(`${url}?sendUpdates=all`, {
+            const res = await googleApiFetch(`${url}?sendUpdates=all`, {
                 method,
-                headers: { Authorization: `Bearer ${calAccessToken}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
@@ -1630,9 +1679,8 @@
             if (!calEditingEventId) return;
             if (!confirm('Delete this event?')) return;
 
-            const res = await fetch(`${calEventsUrl(calEditingEventCalId)}/${calEditingEventId}?sendUpdates=all`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${calAccessToken}` }
+            const res = await googleApiFetch(`${calEventsUrl(calEditingEventCalId)}/${calEditingEventId}?sendUpdates=all`, {
+                method: 'DELETE'
             });
 
             if (res.status === 401) { closeEventModal(); renderCalendarReconnect(); return; }
@@ -1682,9 +1730,25 @@
             wireModalRows();
         }
 
+        function calRefreshTokenKey(userId) {
+            return `velo_ecal_refresh_${userId}`;
+        }
+
         async function initCalendar(session) {
             calAccessToken = session.provider_token;
             calUserId = session.user.id;
+
+            // Supabase's own background session refresh is known to drop
+            // provider_refresh_token from the session object on later loads
+            // even though it was present at sign-in -- keep our own copy so
+            // a Supabase-internal refresh can't quietly break ours.
+            if (session.provider_refresh_token) {
+                calRefreshToken = session.provider_refresh_token;
+                try { localStorage.setItem(calRefreshTokenKey(calUserId), calRefreshToken); } catch (e) {}
+            } else {
+                try { calRefreshToken = localStorage.getItem(calRefreshTokenKey(calUserId)) || calRefreshToken; } catch (e) {}
+            }
+
             if (!calAccessToken) {
                 renderCalendarReconnect();
                 return;
