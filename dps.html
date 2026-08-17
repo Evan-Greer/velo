@@ -122,7 +122,7 @@
         // outward day by day (checking both available years at each offset)
         // until a real memorial turns up, and say plainly how far off it is.
         async function findNearestSaintCelebration(centerDate) {
-            for (let offset = 0; offset <= 10; offset++) {
+            for (let offset = 0; offset <= 30; offset++) {
                 const signs = offset === 0 ? [0] : [-1, 1];
                 for (const sign of signs) {
                     const d = new Date(centerDate);
@@ -134,6 +134,27 @@
                         const data = await fetchCelebrationForDate(year, m, day);
                         if (data && isSaintCelebration(data.celebration)) {
                             return { data, offsetDays: offset * sign };
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        // True last resort, in case the nearby-day search above somehow
+        // comes up empty (it shouldn't -- real saints' days are frequent).
+        // Checks a fixed spread of dates across the whole year so a real
+        // Catholic saint always shows up no matter what, even if not
+        // remotely close to today.
+        async function findAnySaintCelebration() {
+            for (let month = 1; month <= 12; month++) {
+                for (const day of [1, 8, 15, 22]) {
+                    const m = String(month).padStart(2, '0');
+                    const d = String(day).padStart(2, '0');
+                    for (const year of [2026, 2027]) {
+                        const data = await fetchCelebrationForDate(year, m, d);
+                        if (data && isSaintCelebration(data.celebration)) {
+                            return data;
                         }
                     }
                 }
@@ -153,6 +174,9 @@
 
             const nearest = await findNearestSaintCelebration(now);
             if (nearest) return nearest;
+
+            const anySaint = await findAnySaintCelebration();
+            if (anySaint) return { data: anySaint, offsetDays: null };
 
             if (todays) return { data: todays, offsetDays: 0 };
             throw new Error('calendar fetch failed');
@@ -189,7 +213,7 @@
         // cached entry from before the bump is treated as absent instead of
         // silently serving a result computed by the old logic for the rest
         // of that calendar day.
-        const DPS_CACHE_VERSION = 2;
+        const DPS_CACHE_VERSION = 3;
 
         function dpsCacheKey() {
             return 'velo_dps_cache_' + veloTodayString();
@@ -237,6 +261,9 @@
         }
 
         function nearestSaintNote(offsetDays) {
+            if (offsetDays === null) {
+                return "No saint's day fell anywhere near today on the calendar -- here's one from elsewhere on the calendar.";
+            }
             if (!offsetDays) return '';
             const target = new Date();
             target.setDate(target.getDate() + offsetDays);
