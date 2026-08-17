@@ -3,7 +3,11 @@
 
 const SUPABASE_URL = 'https://vgkbefoasgqmainbmvhz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZna2JlZm9hc2dxbWFpbmJtdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0MDkyOTUsImV4cCI6MjEwMTk4NTI5NX0.KwAakclTdfqlYimb2wvHYNe33BNudMxCBSIZoDmchZk';
-const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+// Full "calendar" scope (not just calendar.events) -- reading the list of
+// the user's other calendars (calendarList.list) needs broader access than
+// events-only, which only covers reading/writing events on calendars you
+// already know the ID of.
+const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -35,7 +39,12 @@ async function signInWithGoogle() {
         provider: 'google',
         options: {
             scopes: GOOGLE_CALENDAR_SCOPE,
-            redirectTo: window.location.origin + window.location.pathname
+            redirectTo: window.location.origin + window.location.pathname,
+            // Force Google to show the consent screen again so anyone who
+            // previously granted the narrower calendar.events scope gets
+            // prompted for the broader one instead of silently reusing an
+            // old grant that doesn't cover it.
+            queryParams: { prompt: 'consent', access_type: 'offline' }
         }
     });
 }

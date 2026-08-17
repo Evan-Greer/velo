@@ -495,6 +495,16 @@
             `;
         }
 
+        function syncCalStickyOffset() {
+            const header = document.querySelector('.cal-header');
+            if (!header) return;
+            const offset = header.offsetHeight + 'px';
+            const weekdays = document.querySelector('.cal-weekdays');
+            const timeStickyTop = document.querySelector('.cal-time-sticky-top');
+            if (weekdays) weekdays.style.top = offset;
+            if (timeStickyTop) timeStickyTop.style.top = offset;
+        }
+
         function renderCalendarsDropdown() {
             const el = document.getElementById('calCalendarsDropdown');
             if (!el) return;
@@ -816,6 +826,7 @@
             `;
             wireGridClicks(document.getElementById('calGrid'));
             wireMonthGridDrag(document.getElementById('calGrid'));
+            syncCalStickyOffset();
         }
 
         function renderTimeGrid(days, eventsByDay, allDayByDay) {
@@ -876,6 +887,7 @@
 
             wireGridClicks(body);
             wireTimeGridDrag(body.querySelector('.cal-time-cols'));
+            syncCalStickyOffset();
             // The whole ECal column scrolls (not a nested inner scrollbox --
             // that was the bug preventing reaching hours past ~9pm), so scroll
             // the column itself. Sticky headers keep the day/all-day rows
