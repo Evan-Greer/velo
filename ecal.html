@@ -448,14 +448,15 @@
                 id: c.id,
                 summary: c.summaryOverride || (c.primary ? 'My Calendar' : (c.summary || c.id)),
                 color: c.backgroundColor || CAL_COLORS[0].hex,
-                primary: !!c.primary
+                primary: !!c.primary,
+                accessRole: c.accessRole
             }));
         }
 
         async function initCalendarList() {
             calAllCalendars = await fetchCalendarList(calAccessToken);
             if (!calAllCalendars.some(c => c.primary)) {
-                calAllCalendars.unshift({ id: 'primary', summary: 'My Calendar', color: CAL_COLORS[0].hex, primary: true });
+                calAllCalendars.unshift({ id: 'primary', summary: 'My Calendar', color: CAL_COLORS[0].hex, primary: true, accessRole: 'owner' });
             }
 
             const saved = loadSavedCalendarSelection();
@@ -663,6 +664,7 @@
                             ${CAL_MINI_COLORS.map(hex => `<button type="button" class="cal-edit-color-swatch${hex === c.color ? ' selected' : ''}" data-hex="${hex}" style="background:${hex}"></button>`).join('')}
                         </div>
                         <button type="button" class="ecal-add-btn cal-edit-save-btn">Save</button>
+                        ${c.primary ? '' : `<button type="button" class="cal-edit-delete-btn">${c.accessRole === 'owner' ? 'Delete calendar' : 'Unsubscribe'}</button>`}
                     </div>
                 </div>
             `).join('');
@@ -697,6 +699,34 @@
             return true;
         }
 
+        async function deleteCalendar(calId) {
+            const cal = calAllCalendars.find(c => c.id === calId);
+            if (!cal || cal.primary) return false;
+
+            // Owned calendars get permanently deleted (calendars.delete --
+            // wipes it and every event in it, for everyone it's shared
+            // with). Calendars merely subscribed to (Birthdays, someone
+            // else's shared calendar) only get removed from this list --
+            // calendarList.delete leaves the calendar itself untouched for
+            // its actual owner.
+            const url = cal.accessRole === 'owner'
+                ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}`
+                : `https://www.googleapis.com/calendar/v3/users/me/calendarList/${encodeURIComponent(calId)}`;
+
+            const res = await fetch(url, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${calAccessToken}` }
+            });
+
+            if (res.status === 401) { renderCalendarReconnect(); return false; }
+            if (!res.ok && res.status !== 410) { alert("Couldn't remove that calendar."); return false; }
+
+            calAllCalendars = calAllCalendars.filter(c => c.id !== calId);
+            calSelectedCalendarIds.delete(calId);
+            saveCalendarSelection();
+            return true;
+        }
+
         async function createNewCalendar(name, hex) {
             const createRes = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
                 method: 'POST',
@@ -717,7 +747,7 @@
                 body: JSON.stringify({ backgroundColor: hex, foregroundColor: contrastTextColor(hex) })
             });
 
-            return { id: created.id, summary: name, color: hex, primary: false };
+            return { id: created.id, summary: name, color: hex, primary: false, accessRole: 'owner' };
         }
 
         function renderNewCalendarColorRow() {
@@ -820,6 +850,34 @@
                     return;
                 }
 
+                const deleteBtn = e.target.closest('.cal-edit-delete-btn');
+                if (deleteBtn) {
+                    const popover = deleteBtn.closest('.cal-calendar-edit-popover');
+                    const calId = popover.dataset.calId;
+                    const cal = calAllCalendars.find(c => c.id === calId);
+                    const owned = cal && cal.accessRole === 'owner';
+                    const message = owned
+                        ? `Permanently delete "${cal.summary}" and every event in it? This can't be undone.`
+                        : `Remove "${cal.summary}" from your calendar list? This won't affect the calendar for its owner.`;
+                    if (!confirm(message)) return;
+
+                    deleteBtn.disabled = true;
+                    let ok = false;
+                    try {
+                        ok = await deleteCalendar(calId);
+                    } catch (err) {
+                        alert("Couldn't remove that calendar.");
+                    }
+                    if (ok) {
+                        closeAllCalendarEditPopovers();
+                        renderMyCalendarsList();
+                        refreshCalendar();
+                    } else {
+                        deleteBtn.disabled = false;
+                    }
+                    return;
+                }
+
                 if (!e.target.closest('.cal-calendar-edit-popover')) closeAllCalendarEditPopovers();
             });
 
@@ -889,6 +947,35 @@
             );
         }
 
+        // Formats a Date's own wall-clock components (not UTC, unlike
+        // toISOString) -- needed for multi-day drag/resize math done with
+        // real Date objects, matching the plain "date+time, separate
+        // timeZone field" shape the rest of this file sends Google.
+        function formatLocalDateTime(d) {
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+        }
+
+        async function patchEventResize(eventId, endDateISO, endMinutes) {
+            const event = calEventsById[eventId];
+            if (!event) return;
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            await patchEventStartEnd(event,
+                event.start,
+                { dateTime: `${endDateISO}T${minutesToTimeStr(endMinutes)}:00`, timeZone: tz }
+            );
+        }
+
+        async function patchEventMove(eventId, newStartDate, newEndDate) {
+            const event = calEventsById[eventId];
+            if (!event) return;
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            await patchEventStartEnd(event,
+                { dateTime: formatLocalDateTime(newStartDate), timeZone: tz },
+                { dateTime: formatLocalDateTime(newEndDate), timeZone: tz }
+            );
+        }
+
         async function shiftEventByDays(event, dayDelta) {
             const shiftDate = (dateStr) => {
                 const d = new Date(dateStr + 'T00:00:00');
@@ -909,11 +996,6 @@
 
         let calDragState = null;
 
-        function eventSpansMultipleDays(event) {
-            return !!(event.start.dateTime && event.end.dateTime &&
-                event.start.dateTime.slice(0, 10) !== event.end.dateTime.slice(0, 10));
-        }
-
         function wireTimeGridDrag(container) {
             container.addEventListener('mousedown', (e) => {
                 const resizeHandle = e.target.closest('.cal-time-event-resize');
@@ -922,12 +1004,21 @@
                 if (resizeHandle) {
                     const eventId = resizeHandle.dataset.eventId;
                     const event = calEventsById[eventId];
-                    if (!event || !event.start.dateTime || eventSpansMultipleDays(event)) return;
-                    const startMin = timeToMinutes(event.start.dateTime);
-                    const endMin = event.end.dateTime ? timeToMinutes(event.end.dateTime) : startMin + 60;
+                    if (!event || !event.start.dateTime) return;
+                    const col = eventEl.closest('.cal-time-day-col');
+                    // The handle only ever renders on the segment for the
+                    // event's true end day, so this column's date IS that
+                    // end day -- but for a multi-day event the segment can
+                    // start at minute 0 (not the event's clock start time),
+                    // so the "don't shrink past this" floor has to be
+                    // computed per-day rather than reusing the true start.
+                    const endDateISO = col.dataset.date;
+                    const startDateISO = event.start.dateTime.slice(0, 10);
+                    const floorMinutes = endDateISO === startDateISO ? timeToMinutes(event.start.dateTime) : 0;
+                    const endMin = timeToMinutes(event.end.dateTime);
                     calDragState = {
-                        mode: 'resize', eventId, col: eventEl.closest('.cal-time-day-col'),
-                        startMinutes: startMin, currentEndMinutes: endMin, el: eventEl, moved: false
+                        mode: 'resize', eventId, col, endDateISO,
+                        floorMinutes, currentEndMinutes: endMin, el: eventEl, moved: false
                     };
                     e.preventDefault();
                     return;
@@ -937,21 +1028,27 @@
                     const eventId = eventEl.dataset.eventId;
                     const event = calEventsById[eventId];
                     if (!event || !event.start.dateTime) return;
-                    // Multi-day events (e.g. 11pm-1am) render as separate
-                    // per-day fragments -- dragging one to "move" it doesn't
-                    // map cleanly onto a single day's minute grid, so just
-                    // let a plain click through to open the edit modal
-                    // instead of starting a move drag.
-                    if (eventSpansMultipleDays(event)) return;
-                    const startMin = timeToMinutes(event.start.dateTime);
-                    const endMin = event.end.dateTime ? timeToMinutes(event.end.dateTime) : startMin + 60;
+
+                    // Real Date arithmetic (not just minutes-within-a-day)
+                    // so this works whether the grabbed segment is the
+                    // event's first day, a later day, or a plain single-day
+                    // event -- duration and the grab offset are both true
+                    // elapsed time, immune to which day happened to be
+                    // clicked.
+                    const trueStart = new Date(event.start.dateTime);
+                    const trueEnd = new Date(event.end.dateTime);
+                    const durationMs = trueEnd - trueStart;
+
                     const col = eventEl.closest('.cal-time-day-col');
                     const colRect = col.getBoundingClientRect();
-                    const grabMinutes = ((e.clientY - colRect.top) / CAL_ROW_H) * 60;
+                    const grabMinutesInDay = ((e.clientY - colRect.top) / CAL_ROW_H) * 60;
+                    const grabPointDate = new Date(col.dataset.date + 'T00:00:00');
+                    grabPointDate.setMinutes(grabPointDate.getMinutes() + grabMinutesInDay);
+                    const grabOffsetMs = grabPointDate - trueStart;
+
                     calDragState = {
-                        mode: 'move', eventId, duration: endMin - startMin,
-                        grabOffsetMinutes: startMin - grabMinutes,
-                        currentStartMinutes: startMin, origDate: col.dataset.date, currentDate: col.dataset.date,
+                        mode: 'move', eventId, durationMs, grabOffsetMs,
+                        currentStartDate: trueStart,
                         el: eventEl, moved: false, startY: e.clientY
                     };
                     e.preventDefault();
@@ -993,10 +1090,10 @@
             if (calDragState.mode === 'resize') {
                 const rect = calDragState.col.getBoundingClientRect();
                 const minutes = snapTo15(Math.max(0, Math.min(1440, ((e.clientY - rect.top) / CAL_ROW_H) * 60)));
-                const newEnd = Math.max(calDragState.startMinutes + 15, minutes);
+                const newEnd = Math.max(calDragState.floorMinutes + 15, minutes);
                 if (newEnd !== calDragState.currentEndMinutes) calDragState.moved = true;
                 calDragState.currentEndMinutes = newEnd;
-                calDragState.el.style.height = Math.max(((newEnd - calDragState.startMinutes) / 60) * CAL_ROW_H - 3, 17) + 'px';
+                calDragState.el.style.height = Math.max(((newEnd - calDragState.floorMinutes) / 60) * CAL_ROW_H - 3, 17) + 'px';
                 return;
             }
 
@@ -1006,17 +1103,31 @@
                 const hoverCol = document.elementFromPoint(e.clientX, e.clientY)?.closest('.cal-time-day-col');
                 const targetCol = hoverCol || calDragState.el.closest('.cal-time-day-col');
                 const rect = targetCol.getBoundingClientRect();
-                const pointerMinutes = ((e.clientY - rect.top) / CAL_ROW_H) * 60 + calDragState.grabOffsetMinutes;
-                let newStart = snapTo15(Math.max(0, Math.min(1440 - calDragState.duration, pointerMinutes)));
+                const pointerMinutesInDay = snapTo15(Math.max(0, Math.min(1440, ((e.clientY - rect.top) / CAL_ROW_H) * 60)));
 
-                if (newStart !== calDragState.currentStartMinutes || targetCol.dataset.date !== calDragState.currentDate) {
+                // Real Date math: where the cursor points right now, minus
+                // the offset from true event start to wherever it was
+                // grabbed, gives the new true start -- correct regardless
+                // of which day/segment is being dragged or which day the
+                // cursor is currently over.
+                const pointerDate = new Date(targetCol.dataset.date + 'T00:00:00');
+                pointerDate.setMinutes(pointerDate.getMinutes() + pointerMinutesInDay);
+                const proposedStart = new Date(pointerDate.getTime() - calDragState.grabOffsetMs);
+                const snappedMs = Math.round(proposedStart.getTime() / (15 * 60000)) * (15 * 60000);
+                const finalStartDate = new Date(snappedMs);
+
+                if (finalStartDate.getTime() !== calDragState.currentStartDate.getTime()) {
                     calDragState.moved = true;
                 }
-                calDragState.currentStartMinutes = newStart;
-                calDragState.currentDate = targetCol.dataset.date;
+                calDragState.currentStartDate = finalStartDate;
 
+                // Visual feedback follows the cursor within whatever day
+                // it's over, using the grabbed segment's own height -- an
+                // approximation of the true multi-day shape while actively
+                // dragging; refreshCalendar() on drop renders the correct
+                // final segments regardless of what this looked like.
                 if (targetCol !== calDragState.el.parentElement) targetCol.appendChild(calDragState.el);
-                calDragState.el.style.top = (newStart / 60 * CAL_ROW_H + 1.5) + 'px';
+                calDragState.el.style.top = (pointerMinutesInDay / 60 * CAL_ROW_H + 1.5) + 'px';
             }
         });
 
@@ -1037,14 +1148,15 @@
             if (state.mode === 'resize') {
                 if (!state.moved) return;
                 suppressNextClick();
-                await patchEventTime(state.eventId, state.startMinutes, state.currentEndMinutes, state.col.dataset.date);
+                await patchEventResize(state.eventId, state.endDateISO, state.currentEndMinutes);
                 return;
             }
 
             if (state.mode === 'move') {
                 if (!state.moved) return; // plain click on the event -- let the click handler open it
                 suppressNextClick();
-                await patchEventTime(state.eventId, state.currentStartMinutes, state.currentStartMinutes + state.duration, state.currentDate);
+                const newEndDate = new Date(state.currentStartDate.getTime() + state.durationMs);
+                await patchEventMove(state.eventId, state.currentStartDate, newEndDate);
             }
         });
 
@@ -1161,7 +1273,7 @@
                     // end day gets a resize handle -- resizing an earlier
                     // fragment of a multi-day event doesn't map to anything
                     // sensible.
-                    const resizeHandle = !eventSpansMultipleDays(e) ? `<div class="cal-time-event-resize" data-event-id="${e.id}"></div>` : '';
+                    const resizeHandle = e._segIsLast ? `<div class="cal-time-event-resize" data-event-id="${e.id}"></div>` : '';
                     return `<div class="cal-time-event" data-event-id="${e.id}" style="top:${top}px;height:${height}px;background:${eventColor(e)}33;border-left:3px solid ${eventColor(e)}" title="${escapeHtml(e.summary || '(untitled)')}">${escapeHtml(e.summary || '(untitled)')}${resizeHandle}</div>`;
                 }).join('');
                 return `<div class="cal-time-day-col" data-date="${dateStr}">${slots}${events}</div>`;
