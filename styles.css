@@ -1369,33 +1369,6 @@ header {
     border-bottom-color: rgba(162, 196, 214, 0.6) !important;
 }
 
-.cal-modal-tabs {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    padding-bottom: 12px;
-    margin-bottom: 8px;
-}
-
-.cal-modal-tab {
-    background: none;
-    border: none;
-    font-family: inherit;
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.45);
-    padding: 6px 10px;
-    border-radius: 8px;
-    cursor: not-allowed;
-}
-
-.cal-modal-tab.active {
-    color: #cfe4ef;
-    background: rgba(162, 196, 214, 0.14);
-    cursor: default;
-}
-
 .cal-modal-row {
     display: flex;
     align-items: flex-start;
