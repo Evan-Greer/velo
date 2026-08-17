@@ -607,6 +607,12 @@ header {
     flex-direction: column;
     gap: 3px;
     overflow: hidden;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.cal-cell:not(.empty):hover {
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .cal-cell.empty {
@@ -655,6 +661,155 @@ header {
     padding: 8px 16px;
     font-size: 0.78rem;
     margin-left: 8px;
+}
+
+.cal-view-switcher {
+    display: flex;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 3px;
+    margin-left: 12px;
+}
+
+.cal-view-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.75rem;
+    font-family: inherit;
+    padding: 6px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cal-view-btn:hover {
+    color: #fff;
+}
+
+.cal-view-btn.active {
+    background: rgba(162, 196, 214, 0.14);
+    color: #fff;
+}
+
+/* --- ECal: week/day time grid --- */
+
+.cal-time-header-row,
+.cal-allday-row {
+    display: grid;
+    gap: 2px;
+}
+
+.cal-time-gutter {
+    width: 100%;
+}
+
+.cal-allday-label {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+}
+
+.cal-time-day-header {
+    text-align: center;
+    padding: 6px 0;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.cal-time-day-header.today {
+    color: #92c2dd;
+    font-weight: 600;
+}
+
+.cal-time-day-name {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+}
+
+.cal-time-day-num {
+    font-size: 1rem;
+    margin-top: 2px;
+}
+
+.cal-allday-row {
+    margin-bottom: 6px;
+    min-height: 30px;
+}
+
+.cal-allday-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 6px;
+    cursor: pointer;
+    min-height: 24px;
+}
+
+.cal-time-scroll {
+    max-height: 560px;
+    overflow-y: auto;
+}
+
+.cal-time-body {
+    display: flex;
+}
+
+.cal-hour-labels {
+    width: 56px;
+    flex-shrink: 0;
+}
+
+.cal-hour-label {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.35);
+    text-align: right;
+    padding-right: 8px;
+    box-sizing: border-box;
+    transform: translateY(-6px);
+}
+
+.cal-time-cols {
+    flex: 1;
+    display: flex;
+}
+
+.cal-time-day-col {
+    flex: 1;
+    position: relative;
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cal-hour-slot {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: background 0.15s ease;
+}
+
+.cal-hour-slot:hover {
+    background: rgba(162, 196, 214, 0.06);
+}
+
+.cal-time-event {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-size: 0.68rem;
+    color: #fff;
+    overflow: hidden;
+    cursor: pointer;
+    z-index: 2;
 }
 
 /* --- ECal: event modal --- */
