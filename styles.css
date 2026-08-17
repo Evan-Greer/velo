@@ -982,14 +982,14 @@ header {
 }
 
 .cal-calendar-toggle-row {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
+    gap: 2px;
+    padding: 2px 4px 2px 8px;
     border-radius: 8px;
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.85);
-    cursor: pointer;
     transition: background 0.15s ease;
 }
 
@@ -997,9 +997,26 @@ header {
     background: rgba(255, 255, 255, 0.05);
 }
 
+.cal-calendar-toggle-label {
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    cursor: pointer;
+}
+
 .cal-calendar-toggle-row input {
     width: auto;
     accent-color: #a2c4d6;
+    flex-shrink: 0;
+}
+
+.cal-calendar-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .cal-calendar-dot {
@@ -1007,6 +1024,91 @@ header {
     height: 9px;
     border-radius: 50%;
     flex-shrink: 0;
+}
+
+.cal-calendar-menu-btn {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.9rem;
+    line-height: 1;
+    border-radius: 6px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.cal-calendar-toggle-row:hover .cal-calendar-menu-btn {
+    opacity: 1;
+}
+
+.cal-calendar-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.cal-calendar-edit-popover {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    left: 0;
+    z-index: 8;
+    background: #14141a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+
+.cal-calendar-edit-popover.open {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cal-edit-name-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 6px 8px;
+    color: var(--white);
+    font-family: inherit;
+    font-size: 0.78rem;
+    box-sizing: border-box;
+}
+
+.cal-edit-name-input:focus {
+    border-color: rgba(162, 196, 214, 0.3);
+}
+
+.cal-edit-color-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cal-edit-color-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+}
+
+.cal-edit-color-swatch.selected {
+    border-color: #fff;
+}
+
+.cal-edit-save-btn {
+    width: 100%;
+    padding: 7px;
+    font-size: 0.75rem;
 }
 
 /* --- ECal: week/day time grid --- */
