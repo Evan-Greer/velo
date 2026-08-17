@@ -1018,6 +1018,60 @@ header {
     margin-bottom: 6px;
 }
 
+.cal-add-calendar-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-family: inherit;
+    font-size: 0.78rem;
+    padding: 6px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: all 0.15s ease;
+}
+
+.cal-add-calendar-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+.cal-add-calendar-form {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    margin-top: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+}
+
+.cal-add-calendar-form.open {
+    display: flex;
+}
+
+.cal-add-calendar-form input {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--white);
+    font-family: inherit;
+    font-size: 0.78rem;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.cal-add-calendar-form input:focus {
+    border-color: rgba(162, 196, 214, 0.3);
+}
+
 .cal-calendar-toggle-row {
     position: relative;
     display: flex;

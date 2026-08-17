@@ -556,6 +556,12 @@
                     <div class="cal-my-calendars">
                         <div class="cal-my-calendars-heading">My calendars</div>
                         <div id="calMyCalendarsList"></div>
+                        <button type="button" class="cal-add-calendar-btn" id="calAddCalendarBtn">+ Add calendar</button>
+                        <div class="cal-add-calendar-form" id="calAddCalendarForm">
+                            <input type="text" id="calNewCalendarName" placeholder="Calendar name">
+                            <div class="cal-edit-color-row" id="calNewCalendarColorRow"></div>
+                            <button type="button" class="ecal-add-btn" id="calNewCalendarCreateBtn">Create</button>
+                        </div>
                     </div>
                 </div>
                 <div class="cal-main">
@@ -689,6 +695,75 @@
             const cal = calAllCalendars.find(c => c.id === calId);
             if (cal) { cal.summary = name; cal.color = hex; }
             return true;
+        }
+
+        async function createNewCalendar(name, hex) {
+            const createRes = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${calAccessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ summary: name })
+            });
+
+            if (createRes.status === 401) { renderCalendarReconnect(); return null; }
+            if (!createRes.ok) { alert("Couldn't create that calendar."); return null; }
+            const created = await createRes.json();
+
+            // Newly created calendars start on Google's default color --
+            // set ours via the same calendarList.patch used for editing so
+            // it matches the swatch picked here.
+            await fetch(`https://www.googleapis.com/calendar/v3/users/me/calendarList/${encodeURIComponent(created.id)}`, {
+                method: 'PATCH',
+                headers: { Authorization: `Bearer ${calAccessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ backgroundColor: hex, foregroundColor: contrastTextColor(hex) })
+            });
+
+            return { id: created.id, summary: name, color: hex, primary: false };
+        }
+
+        function renderNewCalendarColorRow() {
+            const el = document.getElementById('calNewCalendarColorRow');
+            el.innerHTML = CAL_MINI_COLORS.map((hex, i) => `<button type="button" class="cal-edit-color-swatch${i === 0 ? ' selected' : ''}" data-hex="${hex}" style="background:${hex}"></button>`).join('');
+        }
+
+        function wireAddCalendarForm() {
+            const btn = document.getElementById('calAddCalendarBtn');
+            const form = document.getElementById('calAddCalendarForm');
+            const nameInput = document.getElementById('calNewCalendarName');
+
+            renderNewCalendarColorRow();
+
+            btn.onclick = () => {
+                form.classList.toggle('open');
+                if (form.classList.contains('open')) nameInput.focus();
+            };
+
+            form.querySelector('.cal-edit-color-row').addEventListener('click', (e) => {
+                const swatch = e.target.closest('.cal-edit-color-swatch');
+                if (!swatch) return;
+                form.querySelectorAll('.cal-edit-color-swatch').forEach(s => s.classList.toggle('selected', s === swatch));
+            });
+
+            document.getElementById('calNewCalendarCreateBtn').onclick = async () => {
+                const name = nameInput.value.trim();
+                if (!name) return;
+                const selectedSwatch = form.querySelector('.cal-edit-color-swatch.selected');
+                const hex = selectedSwatch ? selectedSwatch.dataset.hex : CAL_MINI_COLORS[0];
+
+                const createBtn = document.getElementById('calNewCalendarCreateBtn');
+                createBtn.disabled = true;
+                const newCal = await createNewCalendar(name, hex);
+                createBtn.disabled = false;
+                if (!newCal) return;
+
+                calAllCalendars.push(newCal);
+                calSelectedCalendarIds.add(newCal.id);
+                saveCalendarSelection();
+
+                nameInput.value = '';
+                form.classList.remove('open');
+                renderMyCalendarsList();
+                refreshCalendar();
+            };
         }
 
         function wireMyCalendarsList() {
@@ -1506,6 +1581,7 @@
             renderCalendarShell();
             wireEventModal();
             wireMyCalendarsList();
+            wireAddCalendarForm();
 
             calViewDate = new Date();
             calViewMode = 'month';
