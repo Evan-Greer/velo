@@ -185,6 +185,12 @@
             return parts.join(' ');
         }
 
+        // Bump this whenever the celebration-picking logic changes -- a
+        // cached entry from before the bump is treated as absent instead of
+        // silently serving a result computed by the old logic for the rest
+        // of that calendar day.
+        const DPS_CACHE_VERSION = 2;
+
         function dpsCacheKey() {
             return 'velo_dps_cache_' + veloTodayString();
         }
@@ -192,7 +198,9 @@
         function loadDpsCache() {
             try {
                 const raw = localStorage.getItem(dpsCacheKey());
-                return raw ? JSON.parse(raw) : null;
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                return parsed.version === DPS_CACHE_VERSION ? parsed : null;
             } catch (e) {
                 return null;
             }
@@ -200,7 +208,7 @@
 
         function saveDpsCache(data) {
             try {
-                localStorage.setItem(dpsCacheKey(), JSON.stringify(data));
+                localStorage.setItem(dpsCacheKey(), JSON.stringify({ ...data, version: DPS_CACHE_VERSION }));
             } catch (e) {}
         }
 
