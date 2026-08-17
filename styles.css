@@ -533,7 +533,7 @@ header {
     width: 300px;
     flex-shrink: 0;
     overflow-y: auto;
-    padding: 96px 24px 30px 24px;
+    padding: 0 24px 30px 24px;
     box-sizing: border-box;
     background: rgba(255, 255, 255, 0.015);
 }
@@ -560,7 +560,7 @@ header {
 .ecal-calendar-column {
     flex-grow: 1;
     overflow-y: auto;
-    padding: 96px 32px 30px 32px;
+    padding: 0 32px 30px 32px;
     box-sizing: border-box;
 }
 
@@ -571,7 +571,25 @@ header {
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--white);
+}
+
+/* Columns lost their own top padding so that a scrolled-past item can
+   never peek out above the sticky header -- the header now carries
+   that top spacing itself, inside its own opaque sticky box, so there's
+   no gap left uncovered for content to show through. */
+.ecal-calendar-column h1 {
+    padding-top: 96px;
     margin-bottom: 18px;
+}
+
+.ecal-side-column h1 {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: var(--black);
+    padding-top: 96px;
+    padding-bottom: 18px;
+    margin-bottom: 0;
 }
 
 @media (max-width: 900px) {
@@ -658,6 +676,7 @@ header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    padding-top: 96px;
     padding-bottom: 18px;
     position: sticky;
     top: 0;
