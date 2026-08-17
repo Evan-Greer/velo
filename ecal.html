@@ -404,11 +404,6 @@
                     if (event) openEventModal(event);
                     return;
                 }
-                const hourSlot = e.target.closest('.cal-hour-slot');
-                if (hourSlot) {
-                    openEventModal(null, hourSlot.dataset.date, hourSlot.dataset.hour);
-                    return;
-                }
                 const alldayCell = e.target.closest('.cal-allday-cell');
                 if (alldayCell) {
                     openEventModal(null, alldayCell.dataset.date);
@@ -420,6 +415,64 @@
                 }
             };
         }
+
+        function snapTo15(minutes) {
+            return Math.round(minutes / 15) * 15;
+        }
+
+        function minutesToTimeStr(totalMinutes) {
+            const clamped = Math.max(0, Math.min(1439, totalMinutes));
+            const h = Math.floor(clamped / 60);
+            const m = clamped % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+
+        let calDragState = null;
+
+        function wireTimeGridDrag(container) {
+            container.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.cal-time-event')) return;
+                const col = e.target.closest('.cal-time-day-col');
+                if (!col) return;
+
+                const rect = col.getBoundingClientRect();
+                const startMinutes = snapTo15(Math.max(0, Math.min(1440, ((e.clientY - rect.top) / CAL_ROW_H) * 60)));
+
+                const ghost = document.createElement('div');
+                ghost.className = 'cal-time-event cal-drag-ghost';
+                ghost.style.top = (startMinutes / 60 * CAL_ROW_H) + 'px';
+                ghost.style.height = '4px';
+                col.appendChild(ghost);
+
+                calDragState = { date: col.dataset.date, col, startMinutes, currentMinutes: startMinutes, ghostEl: ghost };
+                e.preventDefault();
+            });
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            if (!calDragState) return;
+            const rect = calDragState.col.getBoundingClientRect();
+            const minutes = snapTo15(Math.max(0, Math.min(1440, ((e.clientY - rect.top) / CAL_ROW_H) * 60)));
+            calDragState.currentMinutes = minutes;
+
+            const top = Math.min(calDragState.startMinutes, minutes);
+            const bottom = Math.max(calDragState.startMinutes, minutes);
+            calDragState.ghostEl.style.top = (top / 60 * CAL_ROW_H) + 'px';
+            calDragState.ghostEl.style.height = Math.max((bottom - top) / 60 * CAL_ROW_H, 4) + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!calDragState) return;
+            const { date, startMinutes, currentMinutes, ghostEl } = calDragState;
+            ghostEl.remove();
+            calDragState = null;
+
+            let start = Math.min(startMinutes, currentMinutes);
+            let end = Math.max(startMinutes, currentMinutes);
+            if (end - start < 15) end = start + 30; // plain click/tap -> 30min default, not a real drag
+
+            openEventModal(null, date, start, end);
+        });
 
         function renderMonthGrid(year, month, eventsByDate) {
             document.getElementById('calMonthLabel').textContent =
@@ -510,6 +563,7 @@
             `;
 
             wireGridClicks(body);
+            wireTimeGridDrag(body.querySelector('.cal-time-cols'));
             const scrollEl = body.querySelector('.cal-time-scroll');
             if (scrollEl) scrollEl.scrollTop = 7 * CAL_ROW_H;
         }
@@ -615,7 +669,7 @@
             `).join('');
         }
 
-        function openEventModal(event, presetDate, presetHour) {
+        function openEventModal(event, presetDate, presetStartMinutes, presetEndMinutes) {
             calEditingEventId = event ? event.id : null;
             calGuestList = (event && event.attendees) ? event.attendees.map(a => a.email) : [];
             calSelectedColorId = event ? (event.colorId || '') : '';
@@ -625,7 +679,7 @@
             document.getElementById('calFieldLocation').value = event ? (event.location || '') : '';
             document.getElementById('calFieldDescription').value = event ? (event.description || '') : '';
 
-            const isAllDay = event ? !!event.start.date : (presetHour === null || presetHour === undefined);
+            const isAllDay = event ? !!event.start.date : (presetStartMinutes === null || presetStartMinutes === undefined);
             document.getElementById('calFieldAllDay').checked = isAllDay;
 
             if (event) {
@@ -634,10 +688,9 @@
                 document.getElementById('calFieldEndTime').value = event.end.dateTime ? event.end.dateTime.slice(11, 16) : '';
             } else {
                 document.getElementById('calFieldDate').value = presetDate || veloTodayString();
-                if (presetHour !== null && presetHour !== undefined) {
-                    const h = String(presetHour).padStart(2, '0');
-                    document.getElementById('calFieldStartTime').value = `${h}:00`;
-                    document.getElementById('calFieldEndTime').value = `${String((Number(presetHour) + 1) % 24).padStart(2, '0')}:00`;
+                if (presetStartMinutes !== null && presetStartMinutes !== undefined) {
+                    document.getElementById('calFieldStartTime').value = minutesToTimeStr(presetStartMinutes);
+                    document.getElementById('calFieldEndTime').value = minutesToTimeStr(presetEndMinutes != null ? presetEndMinutes : presetStartMinutes + 30);
                 } else {
                     document.getElementById('calFieldStartTime').value = '';
                     document.getElementById('calFieldEndTime').value = '';
@@ -817,17 +870,27 @@
             initCalendar(session);
         }
 
+        let ecalRenderedUserId = null;
+
         async function initEcalPage() {
             const { data: { session } } = await sb.auth.getSession();
             if (session) {
+                ecalRenderedUserId = session.user.id;
                 renderSignedIn(session);
             } else {
                 renderSignedOut();
             }
+            // Supabase fires this on background token refresh too (e.g. when the
+            // tab regains focus), not just on real sign-in/out. Only rebuild the
+            // page when who's signed in actually changes -- otherwise this was
+            // silently resetting the calendar view, to-do scroll position, etc.
+            // on every alt-tab back to the browser.
             sb.auth.onAuthStateChange((_event, newSession) => {
-                if (newSession) {
+                if (newSession && newSession.user.id !== ecalRenderedUserId) {
+                    ecalRenderedUserId = newSession.user.id;
                     renderSignedIn(newSession);
-                } else {
+                } else if (!newSession && ecalRenderedUserId !== null) {
+                    ecalRenderedUserId = null;
                     renderSignedOut();
                 }
             });

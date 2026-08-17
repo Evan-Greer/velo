@@ -113,17 +113,25 @@
             `).join('');
         }
 
+        let logRenderedUserId = null;
+
         async function initLogPage() {
             const { data: { session } } = await sb.auth.getSession();
             if (session) {
+                logRenderedUserId = session.user.id;
                 renderSignedIn(session);
             } else {
                 renderSignedOut();
             }
+            // Only rebuild on an actual sign-in/out, not on background token
+            // refresh (which fires on tab refocus) -- otherwise this would wipe
+            // an in-progress, unsaved entry every time you tabbed away and back.
             sb.auth.onAuthStateChange((_event, newSession) => {
-                if (newSession) {
+                if (newSession && newSession.user.id !== logRenderedUserId) {
+                    logRenderedUserId = newSession.user.id;
                     renderSignedIn(newSession);
-                } else {
+                } else if (!newSession && logRenderedUserId !== null) {
+                    logRenderedUserId = null;
                     renderSignedOut();
                 }
             });

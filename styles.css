@@ -423,11 +423,11 @@ header {
 }
 
 .ecal-side-column.ecal-left {
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .ecal-side-column.ecal-right {
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .ecal-calendar-column {
@@ -810,6 +810,13 @@ header {
     overflow: hidden;
     cursor: pointer;
     z-index: 2;
+}
+
+.cal-drag-ghost {
+    background: rgba(162, 196, 214, 0.25) !important;
+    border: 1px dashed rgba(162, 196, 214, 0.6) !important;
+    pointer-events: none;
+    z-index: 3;
 }
 
 /* --- ECal: event modal --- */
