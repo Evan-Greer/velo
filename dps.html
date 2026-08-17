@@ -35,6 +35,14 @@
             min-height: 1.9em;
         }
 
+        .dps-saint-note {
+            text-align: center;
+            font-size: 0.78rem;
+            font-style: italic;
+            color: rgba(255, 255, 255, 0.45);
+            margin-bottom: 18px;
+        }
+
         .dps-saint-portrait {
             display: block;
             width: 148px;
@@ -94,27 +102,60 @@
             return res.json();
         }
 
+        // MEMORIAL/OPT_MEMORIAL are always a specific canonized person.
+        // FEAST is mixed -- some are saints (Saint Lawrence), some are feasts
+        // of the Lord (Transfiguration) -- so those only count if the name
+        // actually names a saint. SUNDAY/FERIA/plain SOLEMNITY are season or
+        // calendar labels, never a person.
+        function isSaintCelebration(celebration) {
+            if (!celebration || !celebration.name) return false;
+            if (celebration.type === 'MEMORIAL' || celebration.type === 'OPT_MEMORIAL') return true;
+            if (celebration.type === 'FEAST' && /\bSaints?\b/.test(celebration.name)) return true;
+            return false;
+        }
+
+        // The underlying calendar data only covers 2026-2027, and plenty of
+        // ordinary weekdays (this one included) have no saint's memorial
+        // assigned in either year -- Sundays/solemnities outrank memorials,
+        // and some weekdays just never got one. Rather than ever inventing a
+        // saint or mislabeling a season name as "today's saint", search
+        // outward day by day (checking both available years at each offset)
+        // until a real memorial turns up, and say plainly how far off it is.
+        async function findNearestSaintCelebration(centerDate) {
+            for (let offset = 0; offset <= 10; offset++) {
+                const signs = offset === 0 ? [0] : [-1, 1];
+                for (const sign of signs) {
+                    const d = new Date(centerDate);
+                    d.setDate(d.getDate() + offset * sign);
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+
+                    for (const year of [centerDate.getFullYear(), centerDate.getFullYear() + 1, centerDate.getFullYear() - 1]) {
+                        const data = await fetchCelebrationForDate(year, m, day);
+                        if (data && isSaintCelebration(data.celebration)) {
+                            return { data, offsetDays: offset * sign };
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
         async function fetchTodaysCelebration() {
             const now = new Date();
             const m = String(now.getMonth() + 1).padStart(2, '0');
             const d = String(now.getDate()).padStart(2, '0');
 
-            let data = await fetchCelebrationForDate(now.getFullYear(), m, d);
-
-            // Sundays/solemnities outrank saint memorials liturgically, so the
-            // API returns just the season name with no saint bio on those days.
-            // The saint tied to this calendar date still exists in years where
-            // it wasn't superseded -- fall back to find it there.
-            if (!data || !data.celebration?.description) {
-                const fallback = (await fetchCelebrationForDate(2025, m, d)) || (await fetchCelebrationForDate(2027, m, d));
-                if (fallback && fallback.celebration?.description) {
-                    data = fallback;
-                } else if (!data) {
-                    throw new Error('calendar fetch failed');
-                }
+            const todays = await fetchCelebrationForDate(now.getFullYear(), m, d);
+            if (isSaintCelebration(todays?.celebration)) {
+                return { data: todays, offsetDays: 0 };
             }
 
-            return data;
+            const nearest = await findNearestSaintCelebration(now);
+            if (nearest) return nearest;
+
+            if (todays) return { data: todays, offsetDays: 0 };
+            throw new Error('calendar fetch failed');
         }
 
         async function fetchReflection(celebration) {
@@ -163,7 +204,7 @@
             } catch (e) {}
         }
 
-        function renderShell(prayer, celebrationName, celebrationImage) {
+        function renderShell(prayer, celebrationName, celebrationImage, nearestNote) {
             const portrait = celebrationImage
                 ? `<img class="dps-saint-portrait" src="${celebrationImage}" alt="${celebrationName}">`
                 : `<div class="dps-saint-portrait dps-saint-portrait-fallback">
@@ -181,9 +222,18 @@
                 <div class="content-card dps-saint-card">
                     ${portrait}
                     <h1>${celebrationName}</h1>
+                    ${nearestNote ? `<p class="dps-saint-note">${nearestNote}</p>` : ''}
                     <p class="dps-bio" id="dpsBio"></p>
                 </div>
             `;
+        }
+
+        function nearestSaintNote(offsetDays) {
+            if (!offsetDays) return '';
+            const target = new Date();
+            target.setDate(target.getDate() + offsetDays);
+            const dateLabel = target.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+            return `Today has no saint's day of its own on the calendar -- here's the nearest one, usually observed ${dateLabel}.`;
         }
 
         function typeOutText(el, text) {
@@ -209,21 +259,21 @@
 
             const cached = loadDpsCache();
             if (cached) {
-                renderShell(cached.prayer, cached.celebration.name, cached.celebration.image);
+                renderShell(cached.prayer, cached.celebration.name, cached.celebration.image, nearestSaintNote(cached.offsetDays));
                 document.getElementById('dpsBio').textContent = buildBioText(cached.celebration, cached.reflection);
                 return;
             }
 
             try {
-                const data = await fetchTodaysCelebration();
+                const { data, offsetDays } = await fetchTodaysCelebration();
                 const celebration = data.celebration;
                 const prayer = todaysPrayer();
 
-                renderShell(prayer, celebration.name, celebration.image);
+                renderShell(prayer, celebration.name, celebration.image, nearestSaintNote(offsetDays));
 
                 const reflection = await fetchReflection(celebration);
                 await typeOutText(document.getElementById('dpsBio'), buildBioText(celebration, reflection));
-                saveDpsCache({ celebration, prayer, reflection });
+                saveDpsCache({ celebration, prayer, reflection, offsetDays });
             } catch (e) {
                 document.getElementById('pageMain').innerHTML = `
                     <div class="content-card">
