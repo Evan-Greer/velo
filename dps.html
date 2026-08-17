@@ -35,14 +35,6 @@
             min-height: 1.9em;
         }
 
-        .dps-saint-note {
-            text-align: center;
-            font-size: 0.78rem;
-            font-style: italic;
-            color: rgba(255, 255, 255, 0.45);
-            margin-bottom: 18px;
-        }
-
         .dps-saint-portrait {
             display: block;
             width: 148px;
@@ -114,72 +106,58 @@
             return false;
         }
 
-        // The underlying calendar data only covers 2026-2027, and plenty of
-        // ordinary weekdays (this one included) have no saint's memorial
-        // assigned in either year -- Sundays/solemnities outrank memorials,
-        // and some weekdays just never got one. Rather than ever inventing a
-        // saint or mislabeling a season name as "today's saint", search
-        // outward day by day (checking both available years at each offset)
-        // until a real memorial turns up, and say plainly how far off it is.
-        async function findNearestSaintCelebration(centerDate) {
-            for (let offset = 0; offset <= 30; offset++) {
-                const signs = offset === 0 ? [0] : [-1, 1];
-                for (const sign of signs) {
-                    const d = new Date(centerDate);
-                    d.setDate(d.getDate() + offset * sign);
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
+        // Pull every real saint's day the calendar data has for a year (not
+        // just today's) and rotate through that pool one-per-day, the same
+        // way todaysPrayer() rotates through DPS_PRAYERS. This sidesteps
+        // liturgical precedence entirely -- no more "today is a Sunday/feria
+        // so there's no saint" gaps -- while still only ever showing a real
+        // person from the real data source, never an invented one.
+        async function buildSaintPool(year) {
+            const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+            const daysInMonth = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-                    for (const year of [centerDate.getFullYear(), centerDate.getFullYear() + 1, centerDate.getFullYear() - 1]) {
-                        const data = await fetchCelebrationForDate(year, m, day);
-                        if (data && isSaintCelebration(data.celebration)) {
-                            return { data, offsetDays: offset * sign };
-                        }
-                    }
-                }
-            }
-            return null;
-        }
-
-        // True last resort, in case the nearby-day search above somehow
-        // comes up empty (it shouldn't -- real saints' days are frequent).
-        // Checks a fixed spread of dates across the whole year so a real
-        // Catholic saint always shows up no matter what, even if not
-        // remotely close to today.
-        async function findAnySaintCelebration() {
+            const fetches = [];
             for (let month = 1; month <= 12; month++) {
-                for (const day of [1, 8, 15, 22]) {
+                for (let day = 1; day <= daysInMonth[month - 1]; day++) {
                     const m = String(month).padStart(2, '0');
                     const d = String(day).padStart(2, '0');
-                    for (const year of [2026, 2027]) {
-                        const data = await fetchCelebrationForDate(year, m, d);
-                        if (data && isSaintCelebration(data.celebration)) {
-                            return data;
-                        }
-                    }
+                    fetches.push(fetchCelebrationForDate(year, m, d).catch(() => null));
                 }
             }
-            return null;
+
+            const results = await Promise.all(fetches);
+            return results
+                .filter(data => isSaintCelebration(data?.celebration))
+                .map(data => data.celebration);
+        }
+
+        function dpsSaintPoolKey() {
+            return 'velo_dps_saint_pool_v1';
+        }
+
+        async function getSaintPool() {
+            const year = new Date().getFullYear();
+            try {
+                const raw = localStorage.getItem(dpsSaintPoolKey());
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed.year === year && parsed.pool && parsed.pool.length) return parsed.pool;
+                }
+            } catch (e) {}
+
+            let pool = await buildSaintPool(year);
+            if (!pool.length) pool = await buildSaintPool(year + 1);
+
+            try {
+                localStorage.setItem(dpsSaintPoolKey(), JSON.stringify({ year, pool }));
+            } catch (e) {}
+            return pool;
         }
 
         async function fetchTodaysCelebration() {
-            const now = new Date();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-
-            const todays = await fetchCelebrationForDate(now.getFullYear(), m, d);
-            if (isSaintCelebration(todays?.celebration)) {
-                return { data: todays, offsetDays: 0 };
-            }
-
-            const nearest = await findNearestSaintCelebration(now);
-            if (nearest) return nearest;
-
-            const anySaint = await findAnySaintCelebration();
-            if (anySaint) return { data: anySaint, offsetDays: null };
-
-            if (todays) return { data: todays, offsetDays: 0 };
-            throw new Error('calendar fetch failed');
+            const pool = await getSaintPool();
+            if (!pool.length) throw new Error('no saints available');
+            return pool[dayOfYear() % pool.length];
         }
 
         async function fetchReflection(celebration) {
@@ -213,7 +191,7 @@
         // cached entry from before the bump is treated as absent instead of
         // silently serving a result computed by the old logic for the rest
         // of that calendar day.
-        const DPS_CACHE_VERSION = 3;
+        const DPS_CACHE_VERSION = 4;
 
         function dpsCacheKey() {
             return 'velo_dps_cache_' + veloTodayString();
@@ -236,7 +214,7 @@
             } catch (e) {}
         }
 
-        function renderShell(prayer, celebrationName, celebrationImage, nearestNote) {
+        function renderShell(prayer, celebrationName, celebrationImage) {
             const portrait = celebrationImage
                 ? `<img class="dps-saint-portrait" src="${celebrationImage}" alt="${celebrationName}">`
                 : `<div class="dps-saint-portrait dps-saint-portrait-fallback">
@@ -254,21 +232,9 @@
                 <div class="content-card dps-saint-card">
                     ${portrait}
                     <h1>${celebrationName}</h1>
-                    ${nearestNote ? `<p class="dps-saint-note">${nearestNote}</p>` : ''}
                     <p class="dps-bio" id="dpsBio"></p>
                 </div>
             `;
-        }
-
-        function nearestSaintNote(offsetDays) {
-            if (offsetDays === null) {
-                return "No saint's day fell anywhere near today on the calendar -- here's one from elsewhere on the calendar.";
-            }
-            if (!offsetDays) return '';
-            const target = new Date();
-            target.setDate(target.getDate() + offsetDays);
-            const dateLabel = target.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
-            return `Today has no saint's day of its own on the calendar -- here's the nearest one, usually observed ${dateLabel}.`;
         }
 
         function typeOutText(el, text) {
@@ -294,21 +260,20 @@
 
             const cached = loadDpsCache();
             if (cached) {
-                renderShell(cached.prayer, cached.celebration.name, cached.celebration.image, nearestSaintNote(cached.offsetDays));
+                renderShell(cached.prayer, cached.celebration.name, cached.celebration.image);
                 document.getElementById('dpsBio').textContent = buildBioText(cached.celebration, cached.reflection);
                 return;
             }
 
             try {
-                const { data, offsetDays } = await fetchTodaysCelebration();
-                const celebration = data.celebration;
+                const celebration = await fetchTodaysCelebration();
                 const prayer = todaysPrayer();
 
-                renderShell(prayer, celebration.name, celebration.image, nearestSaintNote(offsetDays));
+                renderShell(prayer, celebration.name, celebration.image);
 
                 const reflection = await fetchReflection(celebration);
                 await typeOutText(document.getElementById('dpsBio'), buildBioText(celebration, reflection));
-                saveDpsCache({ celebration, prayer, reflection, offsetDays });
+                saveDpsCache({ celebration, prayer, reflection });
             } catch (e) {
                 document.getElementById('pageMain').innerHTML = `
                     <div class="content-card">
