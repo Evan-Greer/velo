@@ -24,6 +24,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="shared.js"></script>
     <script>
+        const PHOTOS_BUCKET = 'journal-photos';
+
         function todayISO() {
             return veloTodayString();
         }
@@ -35,8 +37,73 @@
             });
         }
 
+        function escapeHtml(str) {
+            return (str || '').replace(/</g, '&lt;');
+        }
+
+        async function getSignedUrls(paths) {
+            const unique = [...new Set(paths)];
+            if (!unique.length) return {};
+            const { data, error } = await sb.storage.from(PHOTOS_BUCKET).createSignedUrls(unique, 7200);
+            if (error || !data) return {};
+            const map = {};
+            data.forEach(d => { if (d.signedUrl) map[d.path] = d.signedUrl; });
+            return map;
+        }
+
+        function mulberry32(seed) {
+            return function () {
+                seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+                let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+                t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+        }
+
+        function pickHourlyRandom(items, count) {
+            const hourSeed = Math.floor(Date.now() / 3600000);
+            const rand = mulberry32(hourSeed);
+            const arr = [...items];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(rand() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr.slice(0, count);
+        }
+
+        async function loadCollage() {
+            const collageEl = document.getElementById('logCollage');
+            if (!collageEl) return;
+
+            const { data } = await sb.from('journal_photos').select('storage_path').limit(300);
+            const paths = (data || []).map(p => p.storage_path);
+
+            if (!paths.length) {
+                collageEl.style.display = 'none';
+                return;
+            }
+
+            const chosen = pickHourlyRandom(paths, 10);
+            const urlMap = await getSignedUrls(chosen);
+            collageEl.style.display = '';
+            collageEl.innerHTML = chosen
+                .filter(p => urlMap[p])
+                .map(p => `<img src="${urlMap[p]}" class="log-collage-img" loading="lazy">`)
+                .join('');
+        }
+
+        function scheduleCollageRefresh() {
+            const now = new Date();
+            const msUntilNextHour = (60 - now.getMinutes()) * 60000 - now.getSeconds() * 1000 - now.getMilliseconds();
+            setTimeout(() => {
+                loadCollage();
+                setInterval(loadCollage, 3600000);
+            }, msUntilNextHour + 500);
+        }
+
         function renderSignedOut() {
-            document.getElementById('pageMain').innerHTML = `
+            const el = document.getElementById('pageMain');
+            el.innerHTML = `
                 <div class="content-card">
                     <h1>Log</h1>
                     <p class="subtitle">Thankful For</p>
@@ -45,13 +112,72 @@
             `;
         }
 
+        async function loadTodayPhotos(userId) {
+            const { data } = await sb.from('journal_photos')
+                .select('id, storage_path')
+                .eq('entry_date', todayISO())
+                .order('created_at', { ascending: true });
+
+            const photos = data || [];
+            const urlMap = await getSignedUrls(photos.map(p => p.storage_path));
+
+            document.getElementById('logPhotoRow').innerHTML = photos.map(p => `
+                <div class="log-photo-thumb">
+                    <img src="${urlMap[p.storage_path] || ''}" alt="">
+                    <button type="button" class="log-photo-remove" data-id="${p.id}" data-path="${p.storage_path}" title="Remove">✕</button>
+                </div>
+            `).join('');
+        }
+
+        async function loadHistory() {
+            const { data: entries } = await sb
+                .from('journal_entries')
+                .select('entry_date, thankful_text')
+                .order('entry_date', { ascending: false })
+                .limit(30);
+
+            const past = (entries || []).filter(e => e.entry_date !== todayISO());
+
+            const { data: photoRows } = await sb
+                .from('journal_photos')
+                .select('entry_date, storage_path')
+                .order('created_at', { ascending: true });
+
+            const photosByDate = {};
+            (photoRows || []).forEach(p => {
+                (photosByDate[p.entry_date] = photosByDate[p.entry_date] || []).push(p.storage_path);
+            });
+
+            const urlMap = await getSignedUrls(Object.values(photosByDate).flat());
+
+            document.getElementById('logHistory').innerHTML = past.map(e => `
+                <div class="history-entry">
+                    <div class="entry-date">${formatEntryDate(e.entry_date)}</div>
+                    <div class="entry-text">${escapeHtml(e.thankful_text)}</div>
+                    ${(photosByDate[e.entry_date] || []).length ? `
+                        <div class="history-photo-row">
+                            ${photosByDate[e.entry_date].map(p => urlMap[p] ? `<img src="${urlMap[p]}" class="history-photo-thumb">` : '').join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
         async function renderSignedIn(session) {
+            const userId = session.user.id;
             const pageMain = document.getElementById('pageMain');
+
             pageMain.innerHTML = `
+                <div class="log-collage" id="logCollage"></div>
                 <div class="content-card">
                     <h1>Log</h1>
                     <p class="subtitle">${formatEntryDate(todayISO())}</p>
                     <textarea class="velo-textarea" id="logTextarea" rows="4" placeholder="What are you thankful for today?"></textarea>
+
+                    <div class="log-photo-row" id="logPhotoRow"></div>
+                    <label class="log-photo-upload-btn" for="logPhotoInput">+ Add a Photo</label>
+                    <input type="file" accept="image/*" id="logPhotoInput" style="display:none">
+
                     <div class="save-row">
                         <button class="auth-btn" id="logSaveBtn" type="button">Save</button>
                         <span class="save-status" id="logSaveStatus">Saved</span>
@@ -74,12 +200,15 @@
                 const text = document.getElementById('logTextarea').value.trim();
                 if (!text) return;
 
-                await sb.from('journal_entries').upsert({
-                    user_id: session.user.id,
+                const { error } = await sb.from('journal_entries').upsert({
+                    user_id: userId,
                     entry_date: todayISO(),
                     thankful_text: text
                 }, { onConflict: 'user_id,entry_date' });
 
+                if (error) { alert("Couldn't save that entry: " + error.message); return; }
+
+                // TODO(Phase 3 hook, now fulfilled): clears the Log tab's pulse.
                 veloMarkDoneToday('velo_log_last_done');
                 renderTabNav('log');
 
@@ -90,27 +219,42 @@
                 loadHistory();
             };
 
+            document.getElementById('logPhotoInput').onchange = async (e) => {
+                const file = e.target.files[0];
+                e.target.value = '';
+                if (!file) return;
+
+                const path = `${userId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                const { error: uploadError } = await sb.storage.from(PHOTOS_BUCKET).upload(path, file);
+                if (uploadError) { alert("Couldn't upload that photo: " + uploadError.message); return; }
+
+                const { error: insertError } = await sb.from('journal_photos').insert({
+                    user_id: userId,
+                    entry_date: todayISO(),
+                    storage_path: path
+                });
+                if (insertError) { alert("Couldn't save that photo: " + insertError.message); return; }
+
+                loadTodayPhotos(userId);
+                loadCollage();
+            };
+
+            document.getElementById('logPhotoRow').onclick = async (e) => {
+                const btn = e.target.closest('.log-photo-remove');
+                if (!btn) return;
+                if (!confirm('Remove this photo?')) return;
+
+                await sb.storage.from(PHOTOS_BUCKET).remove([btn.dataset.path]);
+                await sb.from('journal_photos').delete().eq('id', btn.dataset.id);
+
+                loadTodayPhotos(userId);
+                loadCollage();
+            };
+
+            loadTodayPhotos(userId);
             loadHistory();
-        }
-
-        async function loadHistory() {
-            const historyEl = document.getElementById('logHistory');
-            if (!historyEl) return;
-
-            const { data: entries } = await sb
-                .from('journal_entries')
-                .select('entry_date, thankful_text')
-                .order('entry_date', { ascending: false })
-                .limit(30);
-
-            const past = (entries || []).filter(e => e.entry_date !== todayISO());
-
-            historyEl.innerHTML = past.map(e => `
-                <div class="history-entry">
-                    <div class="entry-date">${formatEntryDate(e.entry_date)}</div>
-                    <div class="entry-text">${e.thankful_text.replace(/</g, '&lt;')}</div>
-                </div>
-            `).join('');
+            loadCollage();
+            scheduleCollageRefresh();
         }
 
         let logRenderedUserId = null;
