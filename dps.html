@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VELO — Daily Prayer & Saint</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <style>
@@ -37,6 +37,18 @@
             line-height: 1.9;
             color: rgba(255, 255, 255, 0.85);
             min-height: 1.9em;
+        }
+
+        .dps-saint-portrait {
+            display: block;
+            width: 148px;
+            height: 148px;
+            margin: 0 auto 22px auto;
+            border-radius: 50%;
+            object-fit: cover;
+            object-position: top center;
+            border: 2px solid rgba(162, 196, 214, 0.35);
+            box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.03), 0 12px 30px rgba(0, 0, 0, 0.4);
         }
     </style>
 </head>
@@ -147,12 +159,13 @@
             } catch (e) {}
         }
 
-        function renderShell(prayer, celebrationName) {
+        function renderShell(prayer, celebrationName, celebrationImage) {
             document.getElementById('pageMain').innerHTML = `
                 <div class="content-card dps-prayer-card">
                     <p>${prayer.text}</p>
                 </div>
                 <div class="content-card dps-saint-card">
+                    ${celebrationImage ? `<img class="dps-saint-portrait" src="${celebrationImage}" alt="${celebrationName}">` : ''}
                     <h1>${celebrationName}</h1>
                     <p class="dps-bio" id="dpsBio"></p>
                 </div>
@@ -182,7 +195,7 @@
 
             const cached = loadDpsCache();
             if (cached) {
-                renderShell(cached.prayer, cached.celebration.name);
+                renderShell(cached.prayer, cached.celebration.name, cached.celebration.image);
                 document.getElementById('dpsBio').textContent = buildBioText(cached.celebration, cached.reflection);
                 return;
             }
@@ -192,7 +205,7 @@
                 const celebration = data.celebration;
                 const prayer = todaysPrayer();
 
-                renderShell(prayer, celebration.name);
+                renderShell(prayer, celebration.name, celebration.image);
 
                 const reflection = await fetchReflection(celebration);
                 await typeOutText(document.getElementById('dpsBio'), buildBioText(celebration, reflection));

@@ -11,7 +11,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-family: 'Titillium Web', system-ui, -apple-system, sans-serif;
     letter-spacing: -0.02em;
 }
 
@@ -414,6 +414,7 @@ header {
 }
 
 .ecal-side-column {
+    position: relative;
     width: 300px;
     flex-shrink: 0;
     overflow-y: auto;
@@ -422,12 +423,23 @@ header {
     background: rgba(255, 255, 255, 0.015);
 }
 
-.ecal-side-column.ecal-left {
-    border-right: 1px solid rgba(255, 255, 255, 0.12);
+.ecal-side-column.ecal-left::after,
+.ecal-side-column.ecal-right::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent 0, transparent 90px, rgba(255, 255, 255, 0.12) 130px, rgba(255, 255, 255, 0.12) 100%);
+    pointer-events: none;
 }
 
-.ecal-side-column.ecal-right {
-    border-left: 1px solid rgba(255, 255, 255, 0.12);
+.ecal-side-column.ecal-left::after {
+    right: 0;
+}
+
+.ecal-side-column.ecal-right::before {
+    left: 0;
 }
 
 .ecal-calendar-column {
