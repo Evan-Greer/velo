@@ -22,50 +22,95 @@
     <div class="cal-modal-overlay" id="calModalOverlay">
         <div class="cal-modal">
             <div class="cal-modal-header">
-                <h2 id="calModalTitle">New Event</h2>
                 <button type="button" class="cal-modal-close" id="calModalClose">✕</button>
             </div>
             <form id="calEventForm">
-                <input type="text" id="calFieldTitle" class="cal-modal-title-input" placeholder="Event title" required>
+                <input type="text" id="calFieldTitle" class="cal-modal-title-input" placeholder="Add title" required>
 
-                <label class="cal-checkbox-row">
-                    <input type="checkbox" id="calFieldAllDay" checked>
-                    All day
-                </label>
-
-                <div class="cal-field-row" id="calDateTimeRow">
-                    <input type="date" id="calFieldDate" required>
-                    <input type="time" id="calFieldStartTime">
-                    <span id="calTimeToLabel">to</span>
-                    <input type="time" id="calFieldEndTime">
+                <div class="cal-modal-tabs">
+                    <button type="button" class="cal-modal-tab active">Event</button>
+                    <button type="button" class="cal-modal-tab" disabled title="Not available in VELO">Task</button>
+                    <button type="button" class="cal-modal-tab" disabled title="Not available in VELO">Out of office</button>
+                    <button type="button" class="cal-modal-tab" disabled title="Not available in VELO">Focus time</button>
+                    <button type="button" class="cal-modal-tab" disabled title="Not available in VELO">Appointment schedule</button>
                 </div>
 
-                <select id="calFieldRecurrence">
-                    <option value="none">Does not repeat</option>
-                    <option value="DAILY">Daily</option>
-                    <option value="WEEKLY">Weekly</option>
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="YEARLY">Yearly</option>
-                </select>
-                <p class="cal-recurring-note" id="calRecurringNote" style="display:none">This event repeats. Editing or deleting only affects this occurrence.</p>
-
-                <input type="text" id="calFieldLocation" placeholder="Location">
-                <textarea id="calFieldDescription" placeholder="Description" rows="3"></textarea>
-
-                <select id="calFieldReminder">
-                    <option value="none">No reminder</option>
-                    <option value="10">10 minutes before</option>
-                    <option value="30">30 minutes before</option>
-                    <option value="60">1 hour before</option>
-                    <option value="1440">1 day before</option>
-                </select>
-
-                <div class="cal-color-picker" id="calColorPicker"></div>
-
-                <div class="cal-guest-input-row">
-                    <input type="email" id="calFieldGuestInput" placeholder="Add guest email and press Enter">
+                <div class="cal-modal-row" id="calRowTime" data-row="time">
+                    <span class="cal-modal-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+                    <div class="cal-modal-row-main">
+                        <button type="button" class="cal-modal-row-summary" id="calRowTimeSummary"></button>
+                        <div class="cal-modal-row-expanded">
+                            <label class="cal-checkbox-row">
+                                <input type="checkbox" id="calFieldAllDay" checked>
+                                All day
+                            </label>
+                            <div class="cal-field-row" id="calDateTimeRow">
+                                <input type="date" id="calFieldDate" required>
+                                <input type="time" id="calFieldStartTime">
+                                <span id="calTimeToLabel">to</span>
+                                <input type="time" id="calFieldEndTime">
+                            </div>
+                            <select id="calFieldRecurrence">
+                                <option value="none">Does not repeat</option>
+                                <option value="DAILY">Daily</option>
+                                <option value="WEEKLY">Weekly</option>
+                                <option value="MONTHLY">Monthly</option>
+                                <option value="YEARLY">Yearly</option>
+                            </select>
+                            <p class="cal-recurring-note" id="calRecurringNote" style="display:none">This event repeats. Editing or deleting only affects this occurrence.</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="cal-guest-chips" id="calGuestChips"></div>
+
+                <div class="cal-modal-row" id="calRowGuests" data-row="guests">
+                    <span class="cal-modal-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3.2"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke-linecap="round"></path><circle cx="17" cy="9" r="2.6"></circle><path d="M15.5 14.3c2.8.4 5 2.7 5 5.7" stroke-linecap="round"></path></svg></span>
+                    <div class="cal-modal-row-main">
+                        <button type="button" class="cal-modal-row-summary" id="calRowGuestsSummary">Add guests</button>
+                        <div class="cal-modal-row-expanded">
+                            <div class="cal-guest-input-row">
+                                <input type="email" id="calFieldGuestInput" placeholder="Add guest email and press Enter">
+                            </div>
+                            <div class="cal-guest-chips" id="calGuestChips"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cal-modal-row" id="calRowLocation" data-row="location">
+                    <span class="cal-modal-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s7-6.3 7-11.5A7 7 0 0 0 5 9.5C5 14.7 12 21 12 21z" stroke-linejoin="round"></path><circle cx="12" cy="9.5" r="2.4"></circle></svg></span>
+                    <div class="cal-modal-row-main">
+                        <button type="button" class="cal-modal-row-summary" id="calRowLocationSummary">Add location</button>
+                        <div class="cal-modal-row-expanded">
+                            <input type="text" id="calFieldLocation" placeholder="Add location">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cal-modal-row" id="calRowDescription" data-row="description">
+                    <span class="cal-modal-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h10" stroke-linecap="round"></path></svg></span>
+                    <div class="cal-modal-row-main">
+                        <button type="button" class="cal-modal-row-summary" id="calRowDescriptionSummary">Add description</button>
+                        <div class="cal-modal-row-expanded">
+                            <textarea id="calFieldDescription" placeholder="Add description" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cal-modal-row" id="calRowCalendar" data-row="calendar">
+                    <span class="cal-modal-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="5.5" width="16" height="15" rx="2.5"></rect><path d="M4 10h16M8 3v4M16 3v4" stroke-linecap="round"></path></svg></span>
+                    <div class="cal-modal-row-main">
+                        <button type="button" class="cal-modal-row-summary" id="calRowCalendarSummary"></button>
+                        <div class="cal-modal-row-expanded">
+                            <div class="cal-color-picker" id="calColorPicker"></div>
+                            <select id="calFieldReminder">
+                                <option value="none">No reminder</option>
+                                <option value="10">10 minutes before</option>
+                                <option value="30">30 minutes before</option>
+                                <option value="60">1 hour before</option>
+                                <option value="1440">1 day before</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="cal-modal-actions">
                     <button type="button" id="calDeleteBtn" class="cal-delete-event-btn">Delete</button>
@@ -1196,7 +1241,6 @@
             document.getElementById('calFieldRecurrence').style.display = event ? 'none' : '';
             document.getElementById('calRecurringNote').style.display = isRecurring ? '' : 'none';
 
-            document.getElementById('calModalTitle').textContent = event ? 'Edit Event' : 'New Event';
             document.getElementById('calFieldTitle').value = event ? (event.summary || '') : '';
             document.getElementById('calFieldLocation').value = event ? (event.location || '') : '';
             document.getElementById('calFieldDescription').value = event ? (event.description || '') : '';
@@ -1234,9 +1278,74 @@
             renderGuestChips();
             renderColorPicker();
             toggleTimeFieldsVisibility();
+            renderRowSummaries();
+
+            document.querySelectorAll('.cal-modal-row').forEach(row => {
+                row.classList.toggle('expanded', row.dataset.row === 'time');
+            });
 
             document.getElementById('calDeleteBtn').style.display = event ? '' : 'none';
             document.getElementById('calModalOverlay').classList.add('open');
+        }
+
+        function formatRowTimeSummary() {
+            const allDay = document.getElementById('calFieldAllDay').checked;
+            const dateVal = document.getElementById('calFieldDate').value;
+            if (!dateVal) return 'Add date';
+
+            const [y, m, d] = dateVal.split('-').map(Number);
+            const dateLabel = new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+            if (allDay) return `${dateLabel} · All day`;
+
+            const startVal = document.getElementById('calFieldStartTime').value;
+            const endVal = document.getElementById('calFieldEndTime').value;
+            if (!startVal || !endVal) return dateLabel;
+
+            const fmt = (t) => {
+                const [h, min] = t.split(':').map(Number);
+                const d2 = new Date(2000, 0, 1, h, min);
+                return d2.toLocaleTimeString(undefined, { hour: 'numeric', minute: min ? '2-digit' : undefined });
+            };
+            return `${dateLabel} · ${fmt(startVal)} – ${fmt(endVal)}`;
+        }
+
+        function formatRowCalendarSummary() {
+            const colorName = (CAL_COLORS.find(c => c.id === calSelectedColorId) || CAL_COLORS[0]).name;
+            const reminderVal = document.getElementById('calFieldReminder').value;
+            const reminderLabel = reminderVal === 'none' ? 'No reminder' :
+                document.querySelector(`#calFieldReminder option[value="${reminderVal}"]`).textContent;
+            return `${colorName} · ${reminderLabel}`;
+        }
+
+        function renderRowSummaries() {
+            document.getElementById('calRowTimeSummary').textContent = formatRowTimeSummary();
+
+            const guestSummary = document.getElementById('calRowGuestsSummary');
+            guestSummary.textContent = calGuestList.length
+                ? (calGuestList.length === 1 ? calGuestList[0] : `${calGuestList.length} guests`)
+                : 'Add guests';
+
+            const locationVal = document.getElementById('calFieldLocation').value.trim();
+            document.getElementById('calRowLocationSummary').textContent = locationVal || 'Add location';
+
+            const descVal = document.getElementById('calFieldDescription').value.trim();
+            document.getElementById('calRowDescriptionSummary').textContent = descVal
+                ? (descVal.length > 60 ? descVal.slice(0, 60) + '…' : descVal)
+                : 'Add description';
+
+            document.getElementById('calRowCalendarSummary').textContent = formatRowCalendarSummary();
+        }
+
+        function wireModalRows() {
+            document.querySelectorAll('.cal-modal-row-summary').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    btn.closest('.cal-modal-row').classList.toggle('expanded');
+                });
+            });
+
+            document.getElementById('calEventForm').addEventListener('input', renderRowSummaries);
+            document.getElementById('calEventForm').addEventListener('change', renderRowSummaries);
         }
 
         function closeEventModal() {
@@ -1337,6 +1446,7 @@
                     renderGuestChips();
                 }
                 e.target.value = '';
+                renderRowSummaries();
             };
 
             document.getElementById('calGuestChips').onclick = (e) => {
@@ -1344,6 +1454,7 @@
                 if (!btn) return;
                 calGuestList.splice(Number(btn.dataset.i), 1);
                 renderGuestChips();
+                renderRowSummaries();
             };
 
             document.getElementById('calColorPicker').onclick = (e) => {
@@ -1351,7 +1462,10 @@
                 if (!swatch) return;
                 calSelectedColorId = swatch.dataset.colorId;
                 renderColorPicker();
+                renderRowSummaries();
             };
+
+            wireModalRows();
         }
 
         async function initCalendar(session) {

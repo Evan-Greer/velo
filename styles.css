@@ -476,9 +476,10 @@ header {
 
 .log-photo-upload-btn {
     display: inline-block;
-    background: rgba(120, 210, 155, 0.12);
-    border: 1px solid rgba(120, 210, 155, 0.3);
-    color: #bfe9cc;
+    background: linear-gradient(180deg, rgba(150, 190, 220, 0.24), rgba(74, 144, 217, 0.16));
+    border: 1px solid rgba(162, 196, 214, 0.4);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    color: #eaf3f8;
     padding: 9px 16px;
     border-radius: 12px;
     font-size: 0.8rem;
@@ -488,7 +489,8 @@ header {
 }
 
 .log-photo-upload-btn:hover {
-    background: rgba(120, 210, 155, 0.2);
+    background: linear-gradient(180deg, rgba(150, 190, 220, 0.34), rgba(74, 144, 217, 0.24));
+    border-color: rgba(162, 196, 214, 0.6);
 }
 
 .history-photo-row {
@@ -646,9 +648,10 @@ header {
     box-sizing: border-box;
     padding: 12px 14px;
     border-radius: 12px;
-    background: rgba(120, 210, 155, 0.12);
-    border: 1px solid rgba(120, 210, 155, 0.3);
-    color: #bfe9cc;
+    background: linear-gradient(180deg, rgba(150, 190, 220, 0.24), rgba(74, 144, 217, 0.16));
+    border: 1px solid rgba(162, 196, 214, 0.4);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    color: #eaf3f8;
     font-family: inherit;
     font-size: 0.85rem;
     font-weight: 500;
@@ -657,8 +660,8 @@ header {
 }
 
 .ecal-add-btn:hover {
-    background: rgba(120, 210, 155, 0.2);
-    border-color: rgba(120, 210, 155, 0.45);
+    background: linear-gradient(180deg, rgba(150, 190, 220, 0.34), rgba(74, 144, 217, 0.24));
+    border-color: rgba(162, 196, 214, 0.6);
 }
 
 .ecal-class-select-row {
@@ -1317,29 +1320,20 @@ header {
 
 .cal-modal {
     width: 100%;
-    max-width: 460px;
+    max-width: 520px;
     max-height: 85vh;
     overflow-y: auto;
     background: rgba(14, 16, 22, 0.97);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 22px;
-    padding: 28px;
+    padding: 16px 28px 28px 28px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
 }
 
 .cal-modal-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 18px;
-}
-
-.cal-modal-header h2 {
-    font-family: 'Titillium Web', sans-serif;
-    font-size: 1rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--white);
+    justify-content: flex-end;
 }
 
 .cal-modal-close {
@@ -1348,6 +1342,7 @@ header {
     color: rgba(255, 255, 255, 0.5);
     font-size: 1.1rem;
     cursor: pointer;
+    padding: 6px;
 }
 
 .cal-modal-close:hover {
@@ -1357,12 +1352,116 @@ header {
 .cal-modal form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
 }
 
 .cal-modal-title-input {
-    font-size: 1rem;
+    background: none !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 0 !important;
+    padding: 6px 2px 12px 2px !important;
+    font-size: 1.4rem;
     font-weight: 500;
+    margin-bottom: 14px;
+}
+
+.cal-modal-title-input:focus {
+    border-bottom-color: rgba(162, 196, 214, 0.6) !important;
+}
+
+.cal-modal-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+}
+
+.cal-modal-tab {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.45);
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: not-allowed;
+}
+
+.cal-modal-tab.active {
+    color: #cfe4ef;
+    background: rgba(162, 196, 214, 0.14);
+    cursor: default;
+}
+
+.cal-modal-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cal-modal-row:last-of-type {
+    border-bottom: none;
+}
+
+.cal-modal-row-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    margin-top: 8px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.cal-modal-row-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.cal-modal-row-main {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.cal-modal-row-summary {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 8px 8px 4px;
+    margin: -8px 0 -8px -4px;
+    color: rgba(255, 255, 255, 0.88);
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+}
+
+.cal-modal-row-summary:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.cal-modal-row-expanded {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.cal-modal-row.expanded .cal-modal-row-expanded {
+    display: flex;
+}
+
+.cal-modal-row.expanded .cal-modal-row-summary {
+    display: none;
 }
 
 .cal-modal input,
