@@ -470,11 +470,39 @@
             days.forEach((d, i) => { dayIndexByISO[dateToISO(d)] = i; });
 
             events.forEach(e => {
-                const isAllDay = !!e.start.date;
-                const dateStr = e.start.date || e.start.dateTime.slice(0, 10);
-                const idx = dayIndexByISO[dateStr];
-                if (idx === undefined) return;
-                (isAllDay ? allDayByDay : byDay)[idx].push(e);
+                if (e.start.date) {
+                    const idx = dayIndexByISO[e.start.date];
+                    if (idx !== undefined) allDayByDay[idx].push(e);
+                    return;
+                }
+
+                // Timed events that cross midnight (e.g. 11pm-1am) used to
+                // only show on their start date, and with an end time that
+                // reads as "earlier" than the start once the day rolls over
+                // -- that computed a negative height, clamped to a barely
+                // visible sliver. Split into one segment per calendar day
+                // the event actually touches instead, same as Google
+                // Calendar's own multi-day rendering.
+                const startDate = new Date(e.start.dateTime);
+                const endDate = new Date(e.end.dateTime);
+                const startISO = dateToISO(startDate);
+                const endISO = dateToISO(endDate);
+
+                const cursor = new Date(startDate);
+                cursor.setHours(0, 0, 0, 0);
+                const lastDay = new Date(endDate);
+                lastDay.setHours(0, 0, 0, 0);
+
+                while (cursor <= lastDay) {
+                    const cursorISO = dateToISO(cursor);
+                    const idx = dayIndexByISO[cursorISO];
+                    const segStartMin = cursorISO === startISO ? timeToMinutes(e.start.dateTime) : 0;
+                    const segEndMin = cursorISO === endISO ? timeToMinutes(e.end.dateTime) : 1440;
+                    if (idx !== undefined && segEndMin > segStartMin) {
+                        byDay[idx].push({ ...e, _segStartMin: segStartMin, _segEndMin: segEndMin, _segIsLast: cursorISO === endISO });
+                    }
+                    cursor.setDate(cursor.getDate() + 1);
+                }
             });
 
             return { byDay, allDayByDay };
@@ -768,6 +796,11 @@
 
         let calDragState = null;
 
+        function eventSpansMultipleDays(event) {
+            return !!(event.start.dateTime && event.end.dateTime &&
+                event.start.dateTime.slice(0, 10) !== event.end.dateTime.slice(0, 10));
+        }
+
         function wireTimeGridDrag(container) {
             container.addEventListener('mousedown', (e) => {
                 const resizeHandle = e.target.closest('.cal-time-event-resize');
@@ -776,7 +809,7 @@
                 if (resizeHandle) {
                     const eventId = resizeHandle.dataset.eventId;
                     const event = calEventsById[eventId];
-                    if (!event || !event.start.dateTime) return;
+                    if (!event || !event.start.dateTime || eventSpansMultipleDays(event)) return;
                     const startMin = timeToMinutes(event.start.dateTime);
                     const endMin = event.end.dateTime ? timeToMinutes(event.end.dateTime) : startMin + 60;
                     calDragState = {
@@ -791,6 +824,12 @@
                     const eventId = eventEl.dataset.eventId;
                     const event = calEventsById[eventId];
                     if (!event || !event.start.dateTime) return;
+                    // Multi-day events (e.g. 11pm-1am) render as separate
+                    // per-day fragments -- dragging one to "move" it doesn't
+                    // map cleanly onto a single day's minute grid, so just
+                    // let a plain click through to open the edit modal
+                    // instead of starting a move drag.
+                    if (eventSpansMultipleDays(event)) return;
                     const startMin = timeToMinutes(event.start.dateTime);
                     const endMin = event.end.dateTime ? timeToMinutes(event.end.dateTime) : startMin + 60;
                     const col = eventEl.closest('.cal-time-day-col');
@@ -1001,11 +1040,16 @@
                 }
                 const events = (eventsByDay[i] || []).map(e => {
                     if (!e.start.dateTime) return '';
-                    const startMin = timeToMinutes(e.start.dateTime);
-                    const endMin = e.end.dateTime ? timeToMinutes(e.end.dateTime) : startMin + 60;
+                    const startMin = e._segStartMin;
+                    const endMin = e._segEndMin;
                     const top = (startMin / 60) * CAL_ROW_H + 1.5;
                     const height = Math.max(((endMin - startMin) / 60) * CAL_ROW_H - 3, 17);
-                    return `<div class="cal-time-event" data-event-id="${e.id}" style="top:${top}px;height:${height}px;background:${eventColor(e)}33;border-left:3px solid ${eventColor(e)}" title="${escapeHtml(e.summary || '(untitled)')}">${escapeHtml(e.summary || '(untitled)')}<div class="cal-time-event-resize" data-event-id="${e.id}"></div></div>`;
+                    // Only the segment that actually lands on the event's real
+                    // end day gets a resize handle -- resizing an earlier
+                    // fragment of a multi-day event doesn't map to anything
+                    // sensible.
+                    const resizeHandle = !eventSpansMultipleDays(e) ? `<div class="cal-time-event-resize" data-event-id="${e.id}"></div>` : '';
+                    return `<div class="cal-time-event" data-event-id="${e.id}" style="top:${top}px;height:${height}px;background:${eventColor(e)}33;border-left:3px solid ${eventColor(e)}" title="${escapeHtml(e.summary || '(untitled)')}">${escapeHtml(e.summary || '(untitled)')}${resizeHandle}</div>`;
                 }).join('');
                 return `<div class="cal-time-day-col" data-date="${dateStr}">${slots}${events}</div>`;
             }).join('');
@@ -1178,8 +1222,13 @@
             const reminderSelect = document.getElementById('calFieldReminder');
             if (event && event.reminders && event.reminders.overrides && event.reminders.overrides.length) {
                 reminderSelect.value = String(event.reminders.overrides[0].minutes);
-            } else {
+            } else if (event) {
+                // Existing event with no overrides means it's using Google's
+                // account-level default reminders -- leave the field as
+                // "no custom reminder" rather than silently implying none.
                 reminderSelect.value = 'none';
+            } else {
+                reminderSelect.value = '10';
             }
 
             renderGuestChips();
