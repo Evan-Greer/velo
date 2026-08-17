@@ -646,6 +646,226 @@ header {
     color: rgba(255, 255, 255, 0.4);
 }
 
+.cal-event-chip {
+    cursor: pointer;
+}
+
+.cal-add-event-btn {
+    width: auto;
+    padding: 8px 16px;
+    font-size: 0.78rem;
+    margin-left: 8px;
+}
+
+/* --- ECal: event modal --- */
+
+.cal-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+}
+
+.cal-modal-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.cal-modal {
+    width: 100%;
+    max-width: 460px;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: rgba(14, 16, 22, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 22px;
+    padding: 28px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.cal-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+
+.cal-modal-header h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--white);
+}
+
+.cal-modal-close {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+.cal-modal-close:hover {
+    color: #fff;
+}
+
+.cal-modal form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cal-modal-title-input {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.cal-modal input,
+.cal-modal select,
+.cal-modal textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: var(--white);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    resize: vertical;
+    transition: border-color 0.2s ease;
+}
+
+.cal-modal input:focus,
+.cal-modal select:focus,
+.cal-modal textarea:focus {
+    border-color: rgba(162, 196, 214, 0.3);
+}
+
+.cal-checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+}
+
+.cal-checkbox-row input {
+    width: auto;
+    accent-color: #4a90d9;
+    cursor: pointer;
+}
+
+.cal-field-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cal-field-row input[type="date"] {
+    flex: 1.4;
+}
+
+.cal-field-row input[type="time"] {
+    flex: 1;
+}
+
+.cal-field-row span {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.8rem;
+}
+
+.cal-color-picker {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cal-color-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+}
+
+.cal-color-swatch.selected {
+    border-color: #fff;
+}
+
+.cal-guest-input-row input {
+    margin-bottom: 0;
+}
+
+.cal-guest-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cal-guest-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(162, 196, 214, 0.12);
+    border: 1px solid rgba(162, 196, 214, 0.25);
+    color: #cfe4ef;
+    font-size: 0.75rem;
+}
+
+.cal-guest-chip button {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0;
+}
+
+.cal-guest-chip button:hover {
+    color: #ff7676;
+}
+
+.cal-modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.cal-modal-actions .ecal-add-btn {
+    flex: 1;
+}
+
+.cal-delete-event-btn {
+    padding: 12px 18px;
+    border-radius: 12px;
+    background: rgba(255, 118, 118, 0.1);
+    border: 1px solid rgba(255, 118, 118, 0.25);
+    color: #ff8f8f;
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cal-delete-event-btn:hover {
+    background: rgba(255, 118, 118, 0.18);
+}
+
 .ecal-list {
     display: flex;
     flex-direction: column;
