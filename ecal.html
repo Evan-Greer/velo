@@ -548,23 +548,27 @@
 
             const body = document.getElementById('calBody');
             body.innerHTML = `
-                <div class="cal-time-header-row" style="grid-template-columns: 56px repeat(${days.length}, 1fr);">
-                    <div class="cal-time-gutter"></div>${headerCols}
-                </div>
-                <div class="cal-allday-row" style="grid-template-columns: 56px repeat(${days.length}, 1fr);">
-                    <div class="cal-time-gutter cal-allday-label">All-day</div>${alldayCols}
-                </div>
-                <div class="cal-time-scroll">
-                    <div class="cal-time-body">
-                        <div class="cal-hour-labels">${hourLabels}</div>
-                        <div class="cal-time-cols">${dayCols}</div>
+                <div class="cal-time-sticky-top">
+                    <div class="cal-time-header-row" style="grid-template-columns: 56px repeat(${days.length}, 1fr);">
+                        <div class="cal-time-gutter"></div>${headerCols}
                     </div>
+                    <div class="cal-allday-row" style="grid-template-columns: 56px repeat(${days.length}, 1fr);">
+                        <div class="cal-time-gutter cal-allday-label">All-day</div>${alldayCols}
+                    </div>
+                </div>
+                <div class="cal-time-body">
+                    <div class="cal-hour-labels">${hourLabels}</div>
+                    <div class="cal-time-cols">${dayCols}</div>
                 </div>
             `;
 
             wireGridClicks(body);
             wireTimeGridDrag(body.querySelector('.cal-time-cols'));
-            const scrollEl = body.querySelector('.cal-time-scroll');
+            // The whole ECal column scrolls (not a nested inner scrollbox --
+            // that was the bug preventing reaching hours past ~9pm), so scroll
+            // the column itself. Sticky headers keep the day/all-day rows
+            // pinned at top regardless.
+            const scrollEl = document.querySelector('.ecal-calendar-column');
             if (scrollEl) scrollEl.scrollTop = 7 * CAL_ROW_H;
         }
 
