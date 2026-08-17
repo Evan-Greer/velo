@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VELO — Log</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="scrollable-page">
@@ -79,13 +79,14 @@
             const paths = (data || []).map(p => p.storage_path);
 
             if (!paths.length) {
-                collageEl.style.display = 'none';
+                collageEl.classList.add('empty');
+                collageEl.innerHTML = `<p class="log-collage-empty">Your photo collage will appear here once you add some pictures.</p>`;
                 return;
             }
 
+            collageEl.classList.remove('empty');
             const chosen = pickHourlyRandom(paths, 10);
             const urlMap = await getSignedUrls(chosen);
-            collageEl.style.display = '';
             collageEl.innerHTML = chosen
                 .filter(p => urlMap[p])
                 .map(p => `<img src="${urlMap[p]}" class="log-collage-img" loading="lazy">`)
