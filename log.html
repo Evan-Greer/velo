@@ -89,14 +89,36 @@
                 return;
             }
 
-            // No loading="lazy" here -- the track is wider than the visible
-            // strip (the whole point of a marquee), so anything past the
-            // fold would sit un-fetched until it scrolled into view, which
-            // is exactly the animation start this is waiting on. Everything
-            // needs to start fetching immediately instead.
-            const cardHtml = (c) => `
+            // Waiting on <img> load/decode still leaves the browser free to
+            // defer the actual paint-ready rasterization of an off-screen
+            // image until the moment it scrolls into view -- that's the
+            // late pop-in. Pre-rendering each photo to a small, already-
+            // fully-decoded thumbnail (via createImageBitmap, which the
+            // spec guarantees is fully decoded before it resolves) and
+            // using *that* as the <img> src sidesteps the browser's own
+            // decode scheduling entirely -- there's nothing left to decode
+            // once it's already been painted onto a canvas.
+            const THUMB_SIZE = 130;
+            async function toDecodedThumbDataUrl(url) {
+                const blob = await (await fetch(url)).blob();
+                const bitmap = await createImageBitmap(blob);
+                const canvas = document.createElement('canvas');
+                canvas.width = THUMB_SIZE;
+                canvas.height = THUMB_SIZE;
+                const ctx = canvas.getContext('2d');
+                const cropSize = Math.min(bitmap.width, bitmap.height);
+                const sx = (bitmap.width - cropSize) / 2;
+                const sy = (bitmap.height - cropSize) / 2;
+                ctx.drawImage(bitmap, sx, sy, cropSize, cropSize, 0, 0, THUMB_SIZE, THUMB_SIZE);
+                bitmap.close();
+                return canvas.toDataURL('image/jpeg', 0.85);
+            }
+
+            const thumbUrls = await Promise.all(cards.map(c => toDecodedThumbDataUrl(c.url).catch(() => c.url)));
+
+            const cardHtml = (c, i) => `
                 <div class="log-slider-card">
-                    <img src="${c.url}">
+                    <img src="${thumbUrls[i]}">
                     ${c.caption ? `<div class="log-slider-caption">${escapeHtml(c.caption)}</div>` : ''}
                 </div>
             `;
@@ -109,22 +131,10 @@
             track.style.animation = 'none';
             track.style.visibility = 'hidden';
 
-            // Wait for every photo to actually finish loading (or fail)
-            // before the track is even shown, let alone starts sliding --
-            // otherwise a slow-loading photo would scroll into view still
-            // blank/broken.
+            // The thumbnails are already fully decoded bitmaps baked into
+            // tiny data URLs, so this should resolve near-instantly -- kept
+            // as a final safety net rather than the primary mechanism.
             const imgs = [...track.querySelectorAll('img')];
-            await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(resolve => {
-                img.addEventListener('load', resolve, { once: true });
-                img.addEventListener('error', resolve, { once: true });
-            })));
-
-            // The load event only means the bytes are downloaded -- the
-            // browser can still defer actually decoding/rasterizing an
-            // off-screen image until the moment it's about to be painted,
-            // which is exactly the late pop-in as a photo scrolls in from
-            // the right. decode() forces that work to happen now, on every
-            // photo, while the track is still hidden.
             await Promise.all(imgs.map(img => img.decode ? img.decode().catch(() => {}) : Promise.resolve()));
 
             const singleSetWidth = track.scrollWidth / 2;
