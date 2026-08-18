@@ -112,12 +112,20 @@
             // Wait for every photo to actually finish loading (or fail)
             // before the track is even shown, let alone starts sliding --
             // otherwise a slow-loading photo would scroll into view still
-            // blank/broken, which is exactly the glitch this fixes.
+            // blank/broken.
             const imgs = [...track.querySelectorAll('img')];
             await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(resolve => {
                 img.addEventListener('load', resolve, { once: true });
                 img.addEventListener('error', resolve, { once: true });
             })));
+
+            // The load event only means the bytes are downloaded -- the
+            // browser can still defer actually decoding/rasterizing an
+            // off-screen image until the moment it's about to be painted,
+            // which is exactly the late pop-in as a photo scrolls in from
+            // the right. decode() forces that work to happen now, on every
+            // photo, while the track is still hidden.
+            await Promise.all(imgs.map(img => img.decode ? img.decode().catch(() => {}) : Promise.resolve()));
 
             const singleSetWidth = track.scrollWidth / 2;
             const duration = Math.max(singleSetWidth / LOG_SLIDER_SPEED_PX_PER_SEC, 8);
