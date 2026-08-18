@@ -460,15 +460,6 @@ header {
     width: max-content;
 }
 
-.log-slider-track:hover {
-    animation-play-state: paused;
-}
-
-@keyframes log-slide {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-}
-
 .log-slider-card {
     flex-shrink: 0;
     width: 130px;

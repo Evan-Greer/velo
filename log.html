@@ -128,7 +128,6 @@
             // loop point is invisible.
             const track = document.getElementById('logSliderTrack');
             track.innerHTML = cards.map(cardHtml).join('') + cards.map(cardHtml).join('');
-            track.style.animation = 'none';
             track.style.visibility = 'hidden';
 
             // The thumbnails are already fully decoded bitmaps baked into
@@ -138,9 +137,58 @@
             await Promise.all(imgs.map(img => img.decode ? img.decode().catch(() => {}) : Promise.resolve()));
 
             const singleSetWidth = track.scrollWidth / 2;
-            const duration = Math.max(singleSetWidth / LOG_SLIDER_SPEED_PX_PER_SEC, 8);
-            track.style.animation = `log-slide ${duration}s linear infinite`;
             track.style.visibility = 'visible';
+            startSliderLoop(track, singleSetWidth);
+        }
+
+        // A CSS `animation: ... infinite` loop has to jump the transform
+        // back from -50% to 0% at the end of every cycle -- harmless in
+        // principle since the content is identical there, but some browsers
+        // (Safari in particular, especially combined with the mask-image
+        // edge fade) visibly hitch right at that keyframe restart, which is
+        // exactly the recurring stall at the same spot every loop. Driving
+        // the scroll from requestAnimationFrame instead means the position
+        // is just elapsed-time-times-speed, wrapped with modulo -- there's
+        // no "jump back to start" moment for anything to hitch on, since
+        // the underlying number never actually resets.
+        let logSliderRafId = null;
+
+        function startSliderLoop(track, singleSetWidth) {
+            if (logSliderRafId) cancelAnimationFrame(logSliderRafId);
+            if (!singleSetWidth) return;
+
+            // Hover-to-pause used to come free from `animation-play-state:
+            // paused` in CSS; now that the scroll is JS-driven, it's
+            // reimplemented here by freezing the elapsed-time accumulator
+            // rather than the transform directly, so resuming continues
+            // smoothly instead of jumping ahead by however long the pause
+            // lasted.
+            let elapsedAtPause = 0;
+            let baseTime = null;
+            let paused = false;
+
+            function step(timestamp) {
+                if (baseTime === null) baseTime = timestamp;
+                if (!paused) {
+                    const elapsedSec = elapsedAtPause + (timestamp - baseTime) / 1000;
+                    const offset = (elapsedSec * LOG_SLIDER_SPEED_PX_PER_SEC) % singleSetWidth;
+                    track.style.transform = `translateX(${-offset}px)`;
+                }
+                logSliderRafId = requestAnimationFrame(step);
+            }
+
+            track.onmouseenter = () => {
+                if (paused || baseTime === null) return;
+                elapsedAtPause += (performance.now() - baseTime) / 1000;
+                paused = true;
+            };
+            track.onmouseleave = () => {
+                if (!paused) return;
+                paused = false;
+                baseTime = performance.now();
+            };
+
+            logSliderRafId = requestAnimationFrame(step);
         }
 
         function renderSignedOut() {
