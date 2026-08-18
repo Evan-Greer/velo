@@ -89,9 +89,14 @@
                 return;
             }
 
+            // No loading="lazy" here -- the track is wider than the visible
+            // strip (the whole point of a marquee), so anything past the
+            // fold would sit un-fetched until it scrolled into view, which
+            // is exactly the animation start this is waiting on. Everything
+            // needs to start fetching immediately instead.
             const cardHtml = (c) => `
                 <div class="log-slider-card">
-                    <img src="${c.url}" loading="lazy">
+                    <img src="${c.url}">
                     ${c.caption ? `<div class="log-slider-caption">${escapeHtml(c.caption)}</div>` : ''}
                 </div>
             `;
@@ -102,12 +107,22 @@
             const track = document.getElementById('logSliderTrack');
             track.innerHTML = cards.map(cardHtml).join('') + cards.map(cardHtml).join('');
             track.style.animation = 'none';
+            track.style.visibility = 'hidden';
 
-            requestAnimationFrame(() => {
-                const singleSetWidth = track.scrollWidth / 2;
-                const duration = Math.max(singleSetWidth / LOG_SLIDER_SPEED_PX_PER_SEC, 8);
-                track.style.animation = `log-slide ${duration}s linear infinite`;
-            });
+            // Wait for every photo to actually finish loading (or fail)
+            // before the track is even shown, let alone starts sliding --
+            // otherwise a slow-loading photo would scroll into view still
+            // blank/broken, which is exactly the glitch this fixes.
+            const imgs = [...track.querySelectorAll('img')];
+            await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(resolve => {
+                img.addEventListener('load', resolve, { once: true });
+                img.addEventListener('error', resolve, { once: true });
+            })));
+
+            const singleSetWidth = track.scrollWidth / 2;
+            const duration = Math.max(singleSetWidth / LOG_SLIDER_SPEED_PX_PER_SEC, 8);
+            track.style.animation = `log-slide ${duration}s linear infinite`;
+            track.style.visibility = 'visible';
         }
 
         function renderSignedOut() {
