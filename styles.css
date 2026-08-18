@@ -322,6 +322,36 @@ header {
     margin-bottom: 6px;
 }
 
+.log-date-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.log-date-row h1 {
+    margin-bottom: 0;
+}
+
+.log-date-input {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 6px 10px;
+    color: rgba(255, 255, 255, 0.75);
+    font-family: inherit;
+    font-size: 0.78rem;
+    outline: none;
+    color-scheme: dark;
+    width: auto;
+    transition: border-color 0.2s ease;
+}
+
+.log-date-input:focus {
+    border-color: rgba(162, 196, 214, 0.3);
+}
+
 .content-card .subtitle {
     color: rgba(255, 255, 255, 0.5);
     font-size: 0.85rem;

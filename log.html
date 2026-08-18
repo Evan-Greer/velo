@@ -51,6 +51,8 @@
             return map;
         }
 
+        let currentLogDate = todayISO();
+
         // Pixels/second the slider crawls at -- tuned to read as a slow,
         // steady drift rather than a snappy carousel, but still moving
         // enough that you're not staring at a still image.
@@ -119,10 +121,10 @@
             `;
         }
 
-        async function loadTodayPhotos(userId) {
+        async function loadPhotosForDate(userId, date) {
             const { data } = await sb.from('journal_photos')
                 .select('id, storage_path')
-                .eq('entry_date', todayISO())
+                .eq('entry_date', date)
                 .order('created_at', { ascending: true });
 
             const photos = data || [];
@@ -143,7 +145,7 @@
                 .order('entry_date', { ascending: false })
                 .limit(30);
 
-            const past = (entries || []).filter(e => e.entry_date !== todayISO());
+            const past = (entries || []).filter(e => e.entry_date !== currentLogDate);
 
             const { data: photoRows } = await sb
                 .from('journal_photos')
@@ -174,13 +176,18 @@
             const userId = session.user.id;
             const pageMain = document.getElementById('pageMain');
 
+            currentLogDate = todayISO();
+
             pageMain.innerHTML = `
                 <div class="log-slider-wrap" id="logSliderWrap">
                     <div class="log-slider-track" id="logSliderTrack"></div>
                 </div>
                 <div class="content-card">
-                    <h1>Log</h1>
-                    <p class="subtitle">${formatEntryDate(todayISO())}</p>
+                    <div class="log-date-row">
+                        <h1>Log</h1>
+                        <input type="date" id="logDateInput" class="log-date-input" max="${todayISO()}" value="${todayISO()}">
+                    </div>
+                    <p class="subtitle" id="logDateLabel">${formatEntryDate(todayISO())}</p>
                     <textarea class="velo-textarea" id="logTextarea" rows="4" placeholder="What are you thankful for today?"></textarea>
 
                     <div class="log-photo-row" id="logPhotoRow"></div>
@@ -195,15 +202,31 @@
                 <div class="history-list" id="logHistory"></div>
             `;
 
-            const { data: todayEntry } = await sb
-                .from('journal_entries')
-                .select('thankful_text')
-                .eq('entry_date', todayISO())
-                .maybeSingle();
+            async function loadEntryFormForDate(date) {
+                currentLogDate = date;
+                const isToday = date === todayISO();
 
-            if (todayEntry) {
-                document.getElementById('logTextarea').value = todayEntry.thankful_text;
+                document.getElementById('logDateLabel').textContent = formatEntryDate(date) + (isToday ? '' : ' · backfilling a past day');
+                document.getElementById('logTextarea').placeholder = isToday
+                    ? 'What are you thankful for today?'
+                    : `What were you thankful for that day?`;
+                document.getElementById('logSaveStatus').classList.remove('visible');
+
+                const { data: entry } = await sb
+                    .from('journal_entries')
+                    .select('thankful_text')
+                    .eq('entry_date', date)
+                    .maybeSingle();
+
+                document.getElementById('logTextarea').value = entry ? entry.thankful_text : '';
+
+                await loadPhotosForDate(userId, date);
             }
+
+            document.getElementById('logDateInput').onchange = (e) => {
+                if (!e.target.value) return;
+                loadEntryFormForDate(e.target.value);
+            };
 
             document.getElementById('logSaveBtn').onclick = async () => {
                 const text = document.getElementById('logTextarea').value.trim();
@@ -211,21 +234,25 @@
 
                 const { error } = await sb.from('journal_entries').upsert({
                     user_id: userId,
-                    entry_date: todayISO(),
+                    entry_date: currentLogDate,
                     thankful_text: text
                 }, { onConflict: 'user_id,entry_date' });
 
                 if (error) { alert("Couldn't save that entry: " + error.message); return; }
 
-                // TODO(Phase 3 hook, now fulfilled): clears the Log tab's pulse.
-                veloMarkDoneToday('velo_log_last_done');
-                renderTabNav('log');
+                // Only clears the Log tab's pulse when actually logging today --
+                // backfilling a past day doesn't mean today is done.
+                if (currentLogDate === todayISO()) {
+                    veloMarkDoneToday('velo_log_last_done');
+                    renderTabNav('log');
+                }
 
                 const status = document.getElementById('logSaveStatus');
                 status.classList.add('visible');
                 setTimeout(() => status.classList.remove('visible'), 1800);
 
                 loadHistory();
+                loadPhotoSlider();
             };
 
             document.getElementById('logPhotoInput').onchange = async (e) => {
@@ -239,12 +266,12 @@
 
                 const { error: insertError } = await sb.from('journal_photos').insert({
                     user_id: userId,
-                    entry_date: todayISO(),
+                    entry_date: currentLogDate,
                     storage_path: path
                 });
                 if (insertError) { alert("Couldn't save that photo: " + insertError.message); return; }
 
-                loadTodayPhotos(userId);
+                loadPhotosForDate(userId, currentLogDate);
                 loadPhotoSlider();
             };
 
@@ -256,11 +283,11 @@
                 await sb.storage.from(PHOTOS_BUCKET).remove([btn.dataset.path]);
                 await sb.from('journal_photos').delete().eq('id', btn.dataset.id);
 
-                loadTodayPhotos(userId);
+                loadPhotosForDate(userId, currentLogDate);
                 loadPhotoSlider();
             };
 
-            loadTodayPhotos(userId);
+            loadPhotosForDate(userId, currentLogDate);
             loadHistory();
             loadPhotoSlider();
         }
