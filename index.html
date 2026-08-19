@@ -4,11 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VELO — AI Ecosystem</title>
-    <!-- Include Marked.js for markdown rendering -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Include highlight.js for code syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/styles/atom-one-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.2/highlight.min.js"></script>
     <!-- Include Orbitron for the SpaceX-inspired aerospace logotype -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
@@ -18,37 +13,17 @@
     <div id="spaceCanvasContainer"></div>
 
     <header>
-        <div class="logo" onclick="goHomeAndSave()">VELO</div>
+        <a href="index.html" class="logo">VELO</a>
         <nav class="tab-nav" id="tabNav"></nav>
         <div class="auth-control" id="authControl"></div>
     </header>
-
-    <div class="history-panel" id="historyPanel">
-        <div class="history-header">
-            <span>Archived History</span>
-            <span class="close-history" onclick="toggleHistoryPanel()">✕</span>
-        </div>
-        <div class="history-list" id="historyList"></div>
-    </div>
 
     <section id="home">
         <div class="velo-main-workspace" id="workspace">
             <div class="orb-wrapper" id="orbWrapper">
                 <div id="veloOrbContainer"></div>
             </div>
-            <div class="chat-container" id="chatContainer"></div>
-            <div class="start-instruction" id="instructionText">Click Velo orb to begin chat</div>
-        </div>
-
-        <div class="bottom-shelf">
-            <div class="prompt-wrapper">
-                <input type="text" class="prompt-input" id="userInput" placeholder="">
-            </div>
-            
-            <div class="nav-dock">
-                <button class="nav-btn" onclick="archiveAndNewChat()">New Chat</button>
-                <button class="nav-btn" onclick="toggleHistoryPanel()">Past Chats</button>
-            </div>
+            <div class="start-instruction" id="instructionText">Immerse yourself</div>
         </div>
     </section>
 
@@ -57,17 +32,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        const chatContainer = document.getElementById('chatContainer');
-        const userInput = document.getElementById('userInput');
         const homeSection = document.getElementById('home');
         const orbWrapper = document.getElementById('orbWrapper');
         const orbContainer = document.getElementById('veloOrbContainer');
-        const historyPanel = document.getElementById('historyPanel');
-        const historyList = document.getElementById('historyList');
         const spaceContainer = document.getElementById('spaceCanvasContainer');
-        const SUPABASE_FUNCTION_URL = "https://vgkbefoasgqmainbmvhz.supabase.co/functions/v1/velo-brain";
-
-        let currentActiveChat = [];
 
         let scene, camera, renderer, particleSystem, originalPositions;
         let spaceScene, spaceCamera, spaceRenderer, starField, customStarGroup;
@@ -82,30 +50,27 @@
         let satelliteCount = 0;
 
         const PARTICLE_COUNT = 55000;
-        const MINI_PARTICLE_COUNT = 2000; // Doubled particles
-        const STAR_COUNT = 5000; 
+        const STAR_COUNT = 5000;
 
-        let baseRotationSpeed = 0.0012; 
+        let baseRotationSpeed = 0.0012;
         let currentSpeedMultiplier = 1.0;
         let targetSpeedMultiplier = 1.0;
-
-        let activeMiniOrbInstances = [];
 
         function createCircleTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 32;
             canvas.height = 32;
             const ctx = canvas.getContext('2d');
-            
+
             const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
             gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
             gradient.addColorStop(0.2, 'rgba(220, 240, 255, 0.95)');
             gradient.addColorStop(0.5, 'rgba(120, 175, 210, 0.45)');
             gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            
+
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, 32, 32);
-            
+
             return new THREE.CanvasTexture(canvas);
         }
 
@@ -132,9 +97,9 @@
         }
 
         function createRealisticAsteroidGeometry() {
-            const geom = new THREE.IcosahedronGeometry(0.09, 1); 
+            const geom = new THREE.IcosahedronGeometry(0.09, 1);
             const pos = geom.attributes.position;
-            
+
             const noiseX = 25.0;
             const noiseY = 25.0;
             const noiseZ = 25.0;
@@ -144,8 +109,8 @@
                 let y = pos.getY(i);
                 let z = pos.getZ(i);
 
-                let spikeFactor = Math.sign(Math.sin(x * noiseX)) * 0.055 + 
-                                  Math.sign(Math.cos(y * noiseY)) * 0.045 + 
+                let spikeFactor = Math.sign(Math.sin(x * noiseX)) * 0.055 +
+                                  Math.sign(Math.cos(y * noiseY)) * 0.045 +
                                   Math.sin(z * noiseZ) * 0.035;
 
                 pos.setX(i, x + x * spikeFactor);
@@ -159,12 +124,12 @@
         function createRealisticSatelliteMesh() {
             const group = new THREE.Group();
             const busMat = new THREE.MeshBasicMaterial({ color: 0x292a2f });
-            const foilMat = new THREE.MeshBasicMaterial({ color: 0xbfa133 }); 
+            const foilMat = new THREE.MeshBasicMaterial({ color: 0xbfa133 });
             const panelMat = new THREE.MeshBasicMaterial({ color: 0x16263d, side: THREE.DoubleSide });
-            
+
             const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.08), busMat);
             group.add(body);
-            
+
             const instrumentCap = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.04, 6), foilMat);
             instrumentCap.position.y = 0.08;
             group.add(instrumentCap);
@@ -172,7 +137,7 @@
             const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.44, 4), busMat);
             crossbar.rotation.z = Math.PI / 2;
             group.add(crossbar);
-            
+
             const leftWing = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.005), panelMat);
             leftWing.position.x = -0.16;
             group.add(leftWing);
@@ -183,7 +148,7 @@
 
             const lightColors = [0x00cc55, 0xdddddd];
             const beaconGeom = new THREE.SphereGeometry(0.007, 4, 4);
-            
+
             const beacon1 = new THREE.Mesh(beaconGeom, new THREE.MeshBasicMaterial({ color: lightColors[0] }));
             beacon1.position.set(-0.03, 0.06, 0.04);
             group.add(beacon1);
@@ -193,15 +158,15 @@
             beacon2.position.set(0.03, -0.06, -0.04);
             group.add(beacon2);
             satelliteLights.push({ mesh: beacon2, pulseType: 'blink', baseColor: lightColors[1] });
-            
+
             return group;
         }
 
         function createSpaceXRocketMesh() {
             const rocketGroup = new THREE.Group();
-            const steelMat = new THREE.MeshBasicMaterial({ color: 0x2e3036 }); 
-            const flapMat = new THREE.MeshBasicMaterial({ color: 0x16171a }); 
-            
+            const steelMat = new THREE.MeshBasicMaterial({ color: 0x2e3036 });
+            const flapMat = new THREE.MeshBasicMaterial({ color: 0x16171a });
+
             const mainCylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.24, 12), steelMat);
             rocketGroup.add(mainCylinder);
 
@@ -222,7 +187,7 @@
             rocketGroup.add(aFlapL, aFlapR);
 
             const flameContainer = new THREE.Group();
-            flameContainer.position.y = -0.12; 
+            flameContainer.position.y = -0.12;
 
             const flameCore = new THREE.Mesh(
                 new THREE.ConeGeometry(0.016, 0.13, 8),
@@ -241,7 +206,7 @@
             flameContainer.add(flameOuter);
 
             rocketGroup.add(flameContainer);
-            
+
             return { group: rocketGroup };
         }
 
@@ -258,91 +223,6 @@
             tail.position.y = 0.225;
             group.add(tail);
             return group;
-        }
-
-        /* --- 2000 BRIGHTENED METALLIC VELO ORB --- */
-        function create2000BeadMiniVelo(containerEl) {
-            const miniScene = new THREE.Scene();
-            const miniCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
-            miniCamera.position.z = 2.4;
-
-            const miniRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            miniRenderer.setSize(42, 42); // 10% Bigger canvas container
-            miniRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            containerEl.appendChild(miniRenderer.domElement);
-
-            const geometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(MINI_PARTICLE_COUNT * 3);
-            const colors = new Float32Array(MINI_PARTICLE_COUNT * 3);
-            const miniOriginals = new Float32Array(MINI_PARTICLE_COUNT * 3);
-
-            // Shifting matrix towards vibrant, electric metallic blues
-            const metallicCoreColor = new THREE.Color(0xdceffa); 
-            const metallicMidColor = new THREE.Color(0x92c2dd);  
-            const metallicEdgeColor = new THREE.Color(0x52829c); 
-
-            for (let i = 0; i < MINI_PARTICLE_COUNT; i++) {
-                const u = Math.random();
-                const v = Math.random();
-                const theta = u * 2.0 * Math.PI;
-                const phi = Math.acos(2.0 * v - 1.0);
-                
-                let radius = 0.85 + (Math.random() * 0.04);
-
-                const x = radius * Math.sin(phi) * Math.cos(theta);
-                const y = radius * Math.sin(phi) * Math.sin(theta);
-                const z = radius * Math.cos(phi);
-
-                positions[i * 3] = x;
-                positions[i * 3 + 1] = y;
-                positions[i * 3 + 2] = z;
-
-                miniOriginals[i * 3] = x;
-                miniOriginals[i * 3 + 1] = y;
-                miniOriginals[i * 3 + 2] = z;
-
-                let mixVal = Math.random();
-                let mixedColor;
-                if(mixVal < 0.5) {
-                    mixedColor = metallicCoreColor.clone().lerp(metallicMidColor, Math.random());
-                } else {
-                    mixedColor = metallicMidColor.clone().lerp(metallicEdgeColor, Math.random());
-                }
-                
-                colors[i * 3] = mixedColor.r;
-                colors[i * 3 + 1] = mixedColor.g;
-                colors[i * 3 + 2] = mixedColor.b;
-            }
-
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-            const material = new THREE.PointsMaterial({
-                size: 0.16, // Brightened size up from 0.125
-                map: sharedDotTexture,
-                vertexColors: true,
-                transparent: true,
-                opacity: 1.0, 
-                blending: THREE.AdditiveBlending,
-                depthWrite: false
-            });
-
-            const miniParticleSystem = new THREE.Points(geometry, material);
-            miniScene.add(miniParticleSystem);
-
-            const instance = {
-                scene: miniScene,
-                camera: miniCamera,
-                renderer: miniRenderer,
-                particles: miniParticleSystem,
-                originals: miniOriginals,
-                container: containerEl,
-                targetSpeed: 0.003, 
-                currentSpeed: 0.003
-            };
-
-            activeMiniOrbInstances.push(instance);
-            return instance;
         }
 
         function initEnvironment() {
@@ -362,9 +242,9 @@
                 starPositions[i+2] = (Math.random() - 0.5) * 12;
             }
             starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-            
+
             const starMat = new THREE.PointsMaterial({
-                size: 0.012, 
+                size: 0.012,
                 map: sharedDotTexture,
                 transparent: true,
                 opacity: 0.75,
@@ -376,18 +256,18 @@
 
             customStarGroup = new THREE.Group();
             for(let i = 0; i < 55; i++) {
-                const randomRadius = 0.005 + Math.random() * 0.010; 
+                const randomRadius = 0.005 + Math.random() * 0.010;
                 const customStarGeo = new THREE.SphereGeometry(randomRadius, 4, 4);
                 const customStarMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.98 });
                 const starMesh = new THREE.Mesh(customStarGeo, customStarMat);
-                
+
                 starMesh.position.set(
                     (Math.random() - 0.5) * 16,
                     (Math.random() - 0.5) * 10,
                     -(Math.random() * 5)
                 );
-                starMesh.userData = { 
-                    driftX: (Math.random() - 0.5) * 0.001, 
+                starMesh.userData = {
+                    driftX: (Math.random() - 0.5) * 0.001,
                     driftY: (Math.random() - 0.5) * 0.001,
                     baseOpacity: 0.98
                 };
@@ -408,15 +288,15 @@
             const colors = new Float32Array(PARTICLE_COUNT * 3);
             originalPositions = new Float32Array(PARTICLE_COUNT * 3);
 
-            const coreColor = new THREE.Color(0xa2c4d6); 
-            const edgeColor = new THREE.Color(0x4a6d82); 
+            const coreColor = new THREE.Color(0xa2c4d6);
+            const edgeColor = new THREE.Color(0x4a6d82);
 
             for (let i = 0; i < PARTICLE_COUNT; i++) {
                 const u = Math.random();
                 const v = Math.random();
                 const theta = u * 2.0 * Math.PI;
                 const phi = Math.acos(2.0 * v - 1.0);
-                
+
                 let radius = 0.85 + (Math.random() * 0.04);
 
                 const x = radius * Math.sin(phi) * Math.cos(theta);
@@ -460,49 +340,41 @@
 
             orbWrapper.addEventListener('mouseenter', onOrbMouseEnter);
             orbWrapper.addEventListener('mouseleave', onOrbMouseLeave);
-            
+
             orbContainer.addEventListener('click', (e) => {
                 const rect = orbContainer.getBoundingClientRect();
                 const centerX = rect.left + rect.width / 2;
                 const centerY = rect.top + rect.height / 2;
                 const clickDistance = Math.hypot(e.clientX - centerX, e.clientY - centerY);
-                
-                const orbVisualRadius = rect.width * 0.36; 
+
+                const orbVisualRadius = rect.width * 0.36;
 
                 if (clickDistance <= orbVisualRadius) {
-                    triggerWorkspaceActivation(e);
+                    window.location.href = 'immerse.html';
                 }
             });
 
             animateLoop();
-            renderPastChatsMenu();
         }
 
-        function triggerWorkspaceActivation(e) {
-            if (e) e.stopPropagation();
-            homeSection.classList.add('workspace-active');
-            spaceContainer.style.opacity = "0"; 
-            setTimeout(() => { userInput.focus(); }, 850);
-        }
-
-        function onOrbMouseEnter() { targetSpeedMultiplier = 4.0; } 
-        function onOrbMouseLeave() { targetSpeedMultiplier = 1.0; } 
+        function onOrbMouseEnter() { targetSpeedMultiplier = 4.0; }
+        function onOrbMouseLeave() { targetSpeedMultiplier = 1.0; }
 
         let clock = new THREE.Clock();
 
         function animateLoop() {
             requestAnimationFrame(animateLoop);
             const elapsedTime = clock.getElapsedTime();
-            
+
             if (starField) {
-                starField.rotation.y = elapsedTime * 0.0004; 
+                starField.rotation.y = elapsedTime * 0.0004;
             }
 
             if (customStarGroup) {
                 customStarGroup.children.forEach(star => {
                     star.position.x += star.userData.driftX;
                     star.position.y += star.userData.driftY;
-                    
+
                     if(Math.abs(star.position.x) > 9) star.position.x = -star.position.x;
                     if(Math.abs(star.position.y) > 6) star.position.y = -star.position.y;
 
@@ -519,7 +391,7 @@
 
             if (elapsedTime > nextEventTime) {
                 spawnCosmicEvent();
-                nextEventTime = elapsedTime + 2.0 + Math.random() * 4.0; 
+                nextEventTime = elapsedTime + 2.0 + Math.random() * 4.0;
             }
 
             satelliteLights.forEach(light => {
@@ -535,7 +407,7 @@
             for (let i = cosmicElements.length - 1; i >= 0; i--) {
                 let obj = cosmicElements[i];
                 obj.mesh.position.add(obj.velocity);
-                
+
                 if(obj.type === 'rock' || obj.type === 'satellite') {
                     obj.mesh.rotation.x += obj.rotSpeed;
                     obj.mesh.rotation.y += obj.rotSpeed * 0.7;
@@ -543,7 +415,7 @@
 
                 if (Math.abs(obj.mesh.position.x) > 11 || Math.abs(obj.mesh.position.y) > 8 || obj.mesh.position.z < -14 || obj.mesh.position.z > 6) {
                     spaceScene.remove(obj.mesh);
-                    
+
                     if(obj.type === 'satellite') {
                         satelliteCount = Math.max(0, satelliteCount - 1);
                         satelliteLights = [];
@@ -551,7 +423,7 @@
                     if(obj.type === 'spacx_rocket') {
                         rocketCount = Math.max(0, rocketCount - 1);
                     }
-                    
+
                     cosmicElements.splice(i, 1);
                 }
             }
@@ -560,11 +432,11 @@
             const currentSpeed = baseRotationSpeed * currentSpeedMultiplier;
 
             particleSystem.rotation.y += currentSpeed;
-            particleSystem.rotation.x = elapsedTime * 0.0015; 
+            particleSystem.rotation.x = elapsedTime * 0.0015;
 
             const posAttr = particleSystem.geometry.attributes.position;
             const waveFrequency = 2.2;
-            const waveAmplitude = 0.04; 
+            const waveAmplitude = 0.04;
 
             for (let i = 0; i < PARTICLE_COUNT; i++) {
                 let x = originalPositions[i * 3];
@@ -579,35 +451,6 @@
             }
             posAttr.needsUpdate = true;
 
-            // Render and spin mini velo instances
-            for (let i = activeMiniOrbInstances.length - 1; i >= 0; i--) {
-                const instance = activeMiniOrbInstances[i];
-                if (!document.body.contains(instance.container)) {
-                    instance.renderer.dispose();
-                    activeMiniOrbInstances.splice(i, 1);
-                    continue;
-                }
-
-                instance.currentSpeed += (instance.targetSpeed - instance.currentSpeed) * 0.06;
-
-                instance.particles.rotation.y += instance.currentSpeed;
-                instance.particles.rotation.x = elapsedTime * 0.002;
-
-                const miniPosAttr = instance.particles.geometry.attributes.position;
-                for (let k = 0; k < MINI_PARTICLE_COUNT; k++) {
-                    let mx = instance.originals[k * 3];
-                    let my = instance.originals[k * 3 + 1];
-                    let mz = instance.originals[k * 3 + 2];
-
-                    const wave = Math.sin(mx * waveFrequency + elapsedTime * 0.8) * Math.cos(my * waveFrequency + elapsedTime * 0.7) * Math.sin(mz * waveFrequency + elapsedTime * 0.9);
-                    miniPosAttr.array[k * 3] = mx + mx * wave * waveAmplitude;
-                    miniPosAttr.array[k * 3 + 1] = my + my * wave * waveAmplitude;
-                    miniPosAttr.array[k * 3 + 2] = mz + mz * wave * waveAmplitude;
-                }
-                miniPosAttr.needsUpdate = true;
-                instance.renderer.render(instance.scene, instance.camera);
-            }
-
             spaceRenderer.render(spaceScene, spaceCamera);
             renderer.render(scene, camera);
         }
@@ -615,11 +458,11 @@
         function spawnCosmicEvent() {
             const roll = Math.random();
             let chosenType = 'rock';
-            
+
             if (roll < 0.08) {
                 chosenType = 'spacx_rocket';
             } else if (roll < 0.35) {
-                chosenType = 'shooting_star'; 
+                chosenType = 'shooting_star';
             } else if (roll < 0.55) {
                 chosenType = 'satellite';
             } else {
@@ -627,81 +470,81 @@
             }
 
             if (chosenType === 'spacx_rocket' && rocketCount >= 1) {
-                chosenType = 'rock'; 
+                chosenType = 'rock';
             }
             if (chosenType === 'satellite' && satelliteCount >= 2) {
-                chosenType = 'rock'; 
+                chosenType = 'rock';
             }
-            
+
             let mesh;
             let velocity = new THREE.Vector3();
-            let rotSpeed = (Math.random() - 0.5) * 0.015; 
+            let rotSpeed = (Math.random() - 0.5) * 0.015;
 
             let startX = 0;
             let startY = 0;
             let startZ = -(1.0 + Math.random() * 2.0);
 
             const spawnWall = Math.floor(Math.random() * 4);
-            if (spawnWall === 0) { 
+            if (spawnWall === 0) {
                 startX = -10.5;
                 startY = (Math.random() - 0.5) * 11;
-            } else if (spawnWall === 1) { 
+            } else if (spawnWall === 1) {
                 startX = 10.5;
                 startY = (Math.random() - 0.5) * 11;
-            } else if (spawnWall === 2) { 
+            } else if (spawnWall === 2) {
                 startX = (Math.random() - 0.5) * 18;
                 startY = 7.5;
-            } else { 
+            } else {
                 startX = (Math.random() - 0.5) * 18;
                 startY = -7.5;
             }
 
             const targetX = (Math.random() - 0.5) * 10;
             const targetY = (Math.random() - 0.5) * 6;
-            
+
             const travelIntoDistance = Math.random() > 0.6;
-            const targetZ = travelIntoDistance ? startZ - (5 + Math.random() * 5) : startZ; 
+            const targetZ = travelIntoDistance ? startZ - (5 + Math.random() * 5) : startZ;
 
             const dir = new THREE.Vector3(targetX - startX, targetY - startY, targetZ - startZ).normalize();
 
             if (chosenType === 'spacx_rocket' || chosenType === 'satellite') {
-                const clearanceRadius = 2.8; 
+                const clearanceRadius = 2.8;
                 let wouldOverlap = cosmicElements.some(existing => {
                     if (existing.type === 'spacx_rocket' || existing.type === 'satellite') {
                         let dist = Math.sqrt(
-                            Math.pow(startX - existing.mesh.position.x, 2) + 
+                            Math.pow(startX - existing.mesh.position.x, 2) +
                             Math.pow(startY - existing.mesh.position.y, 2)
                         );
                         return dist < clearanceRadius;
                     }
                     return false;
                 });
-                
+
                 if (wouldOverlap) {
                     chosenType = 'rock';
                 }
             }
-            
+
             const speedVariance = 0.8 + Math.random() * 0.4;
-            
-            let speed = 0.007 * speedVariance; 
-            if (chosenType === 'satellite') speed = 0.012 * speedVariance; 
-            if (chosenType === 'spacx_rocket') speed = 0.013 * speedVariance; 
-            if (chosenType === 'shooting_star') speed = 0.095 * speedVariance; 
-            
+
+            let speed = 0.007 * speedVariance;
+            if (chosenType === 'satellite') speed = 0.012 * speedVariance;
+            if (chosenType === 'spacx_rocket') speed = 0.013 * speedVariance;
+            if (chosenType === 'shooting_star') speed = 0.095 * speedVariance;
+
             velocity.copy(dir).multiplyScalar(speed);
 
             if (chosenType === 'rock') {
                 const geom = createRealisticAsteroidGeometry();
                 const shadesOfGray = [0x7a7d85, 0x8e929a, 0x5a5d63, 0x6e7278];
                 const chosenGray = shadesOfGray[Math.floor(Math.random() * shadesOfGray.length)];
-                
-                const mat = new THREE.MeshBasicMaterial({ 
+
+                const mat = new THREE.MeshBasicMaterial({
                     color: chosenGray,
-                    map: rockTexture 
+                    map: rockTexture
                 });
                 mesh = new THREE.Mesh(geom, mat);
-                
+
                 const scaleX = 0.75 + Math.random() * 0.45;
                 const scaleY = 0.75 + Math.random() * 0.45;
                 const scaleZ = 0.75 + Math.random() * 0.45;
@@ -717,7 +560,7 @@
                 const rocketData = createSpaceXRocketMesh();
                 mesh = rocketData.group;
                 mesh.scale.set(1.3, 1.3, 1.3);
-                
+
                 const targetPoint = new THREE.Vector3().copy(mesh.position).add(dir);
                 mesh.lookAt(targetPoint);
                 mesh.rotateX(Math.PI / 2);
@@ -734,84 +577,6 @@
             cosmicElements.push({ type: chosenType, mesh, velocity, rotSpeed, initialZ: startZ });
         }
 
-        function brainstormChatTitle(firstMessage) {
-            if (!firstMessage) return "New Conversation";
-            const clean = firstMessage.trim().toLowerCase();
-
-            if (/(temp|weather|forecast|cold|hot|rain|sunny)/i.test(clean)) {
-                const locationMatch = firstMessage.match(/(in|at|for)\s+([A-Za-z\s]{2,20})/i);
-                return locationMatch ? `${locationMatch[2].trim()} Weather` : "Weather Intelligence";
-            }
-            if (/(code|js|html|css|python|bug|function|react|fix)/i.test(clean)) {
-                return "Software Engineering";
-            }
-            if (/(write|story|poem|essay|script|creative)/i.test(clean)) {
-                return "Creative Content";
-            }
-
-            const words = firstMessage.split(/\s+/).slice(0, 3).join(" ");
-            return words.length > 22 ? words.substring(0, 20) + "..." : words;
-        }
-
-        function archiveCurrentChat() {
-            if (currentActiveChat.length > 0) {
-                const history = JSON.parse(localStorage.getItem('velo_history')) || [];
-                const initialUserPrompt = currentActiveChat.find(m => m.role === 'user')?.text || "";
-                const adaptiveTitle = brainstormChatTitle(initialUserPrompt);
-
-                history.unshift({ id: Date.now(), title: adaptiveTitle, data: currentActiveChat });
-                localStorage.setItem('velo_history', JSON.stringify(history));
-                renderPastChatsMenu();
-            }
-
-            currentActiveChat = [];
-            chatContainer.innerHTML = "";
-            chatContainer.classList.remove('has-fade');
-        }
-
-        function archiveAndNewChat() {
-            archiveCurrentChat();
-            userInput.focus();
-        }
-
-        function goHomeAndSave() {
-            archiveCurrentChat();
-            homeSection.classList.remove('workspace-active');
-            spaceContainer.style.opacity = "1";
-        }
-
-        function toggleHistoryPanel() {
-            historyPanel.classList.toggle('open');
-        }
-
-        function renderPastChatsMenu() {
-            const history = JSON.parse(localStorage.getItem('velo_history')) || [];
-            historyList.innerHTML = "";
-            
-            if (history.length === 0) {
-                historyList.innerHTML = `<div style="font-size:0.8rem;color:rgba(255,255,255,0.2);padding:10px;">No saved histories</div>`;
-                return;
-            }
-
-            history.forEach(session => {
-                const item = document.createElement('div');
-                item.classList.add('history-item');
-                item.innerText = session.title;
-                item.onclick = () => { loadSavedSession(session.data); };
-                historyList.appendChild(item);
-            });
-        }
-
-        function loadSavedSession(chatData) {
-            homeSection.classList.add('workspace-active');
-            spaceContainer.style.opacity = "0"; 
-            chatContainer.innerHTML = "";
-            currentActiveChat = chatData;
-            
-            chatData.forEach(msg => { appendBubbleToUI(msg.role, msg.text); });
-            toggleHistoryPanel();
-        }
-
         initEnvironment();
         initVeloNav(null);
 
@@ -826,150 +591,6 @@
                 spaceRenderer.setSize(window.innerWidth, window.innerHeight);
             }
         });
-
-        chatContainer.addEventListener('scroll', () => {
-            if (chatContainer.scrollTop > 10) {
-                chatContainer.classList.add('has-fade');
-            } else {
-                chatContainer.classList.remove('has-fade');
-            }
-        });
-
-        userInput.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter' && userInput.value.trim() !== "") {
-                handleUserMessage(userInput.value);
-                userInput.value = "";
-            }
-        });
-
-        async function handleUserMessage(message) {
-            appendBubble('user', message);
-
-            const veloBubble = appendBubbleToUI('velo', "");
-            veloBubble.innerHTML = `<div class="mini-orb-wrapper"></div>`;
-            const miniContainer = veloBubble.querySelector('.mini-orb-wrapper');
-            
-            // Instantiates 2,000 particle Mini Velo inside bubble
-            const miniOrbInstance = create2000BeadMiniVelo(miniContainer);
-            
-            // Spin rapidly when transitioning to its thinking state
-            miniOrbInstance.targetSpeed = 0.024; 
-
-            try {
-                const history = currentActiveChat
-                    .filter(m => m.text)
-                    .slice(-20)
-                    .map(m => ({ role: m.role === 'velo' ? 'model' : 'user', text: m.text }));
-
-                const response = await fetch(SUPABASE_FUNCTION_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ history })
-                });
-
-                if (!response.ok) throw new Error("API Offline");
-
-                const data = await response.json();
-
-                if (data.errorType === 'rate_limit') {
-                    miniOrbInstance.targetSpeed = 0.003; // Return to soft ambient speed
-                    veloBubble.innerHTML = `<span style="color: #ff7676; font-weight: 500;">Velo is catching its breath.</span><br><span style="font-size: 0.85rem; color: rgba(255,255,255,0.5);">Free tier API limits reached. Please pause for 10-15 seconds before trying your prompt again.</span>`;
-                    currentActiveChat.push({ role: 'velo', text: "Velo Rate Limit Intercept Event." });
-                    return;
-                }
-
-                if (data.errorType === 'api_error') {
-                    miniOrbInstance.targetSpeed = 0.003;
-                    veloBubble.innerHTML = `<span style="color: #ff7676; font-weight: 500;">Velo hit an error.</span><br><span style="font-size: 0.85rem; color: rgba(255,255,255,0.5);">${data.reply}</span>`;
-                    currentActiveChat.push({ role: 'velo', text: data.reply });
-                    return;
-                }
-
-                await streamTextToBubble(veloBubble, data.reply, miniOrbInstance);
-                currentActiveChat.push({ role: 'velo', text: data.reply });
-
-            } catch (error) {
-                miniOrbInstance.targetSpeed = 0.003;
-                veloBubble.innerText = "Forgive me, I encountered an error connecting to my brain.";
-                console.error(error);
-            }
-        }
-
-        function enhanceCodeBlocks(container) {
-            container.querySelectorAll('pre').forEach(pre => {
-                if (pre.dataset.enhanced) return;
-                pre.dataset.enhanced = 'true';
-
-                const codeEl = pre.querySelector('code');
-                if (codeEl && window.hljs) {
-                    hljs.highlightElement(codeEl);
-                }
-
-                const copyBtn = document.createElement('button');
-                copyBtn.className = 'code-copy-btn';
-                copyBtn.type = 'button';
-                copyBtn.textContent = 'Copy';
-                copyBtn.onclick = () => {
-                    const codeText = codeEl ? codeEl.innerText : pre.innerText;
-                    navigator.clipboard.writeText(codeText).then(() => {
-                        copyBtn.textContent = 'Copied!';
-                        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
-                    }).catch(() => {
-                        copyBtn.textContent = 'Failed';
-                        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
-                    });
-                };
-                pre.appendChild(copyBtn);
-            });
-        }
-
-        function streamTextToBubble(element, fullText, miniOrbInstance) {
-            return new Promise((resolve) => {
-                let index = 0;
-                const words = fullText.split(/(\s+)/);
-
-                function typeNextWord() {
-                    if (index < words.length) {
-                        const partialString = words.slice(0, index + 1).join("");
-                        element.innerHTML = marked.parse(partialString);
-                        index++;
-                        chatContainer.scrollTop = chatContainer.scrollHeight;
-                        setTimeout(typeNextWord, Math.random() * 12 + 6);
-                    } else {
-                        // Return spin speed to slow glide once streaming finishes
-                        if(miniOrbInstance) miniOrbInstance.targetSpeed = 0.003;
-                        enhanceCodeBlocks(element);
-                        resolve();
-                    }
-                }
-                typeNextWord();
-            });
-        }
-
-        function appendBubble(role, text) {
-            currentActiveChat.push({ role, text });
-            return appendBubbleToUI(role, text);
-        }
-
-        function appendBubbleToUI(role, text) {
-            const bubble = document.createElement('div');
-            bubble.classList.add('bubble', role);
-            
-            if (role === 'velo' && text !== "") {
-                if (text.includes("Quota exceeded") || text.includes("Google API Error")) {
-                    bubble.innerHTML = `<span style="color: #ff7676; font-weight: 500;">Velo Rate Limit Intercept Event.</span>`;
-                } else {
-                    bubble.innerHTML = marked.parse(text);
-                    enhanceCodeBlocks(bubble);
-                }
-            } else {
-                bubble.innerText = text;
-            }
-            
-            chatContainer.appendChild(bubble);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-            return bubble;
-        }
     </script>
 </body>
 </html>
