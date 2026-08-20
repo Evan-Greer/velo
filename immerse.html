@@ -15,17 +15,427 @@
         <div class="auth-control" id="authControl"></div>
     </header>
 
-    <main class="stub-main">
-        <div class="stub-card">
-            <h1>Immerse</h1>
-            <p>Upload your course materials and study with spaced repetition, active recall, and focused work sessions — coming soon.</p>
-        </div>
-    </main>
+    <main class="page-main" id="pageMain"></main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="shared.js"></script>
     <script>
+        const MATERIALS_BUCKET = 'class-materials';
+        const IMMERSE_FUNCTION_URL = "https://vgkbefoasgqmainbmvhz.supabase.co/functions/v1/immerse-brain";
+
+        // A card takes roughly 10-20s to review; 40 cards is a ~15-20 min
+        // block -- matched to the short-focused-session research this tab
+        // is built around, not an arbitrary number.
+        const DAILY_REVIEW_BUDGET = 40;
+        const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
+
+        function todayISO() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str ?? '';
+            return div.innerHTML;
+        }
+
+        function fileToBase64(fileOrBlob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1] || '');
+                reader.onerror = reject;
+                reader.readAsDataURL(fileOrBlob);
+            });
+        }
+
+        // Simplified SM-2: three-button grading (Again/Good/Easy) mapped to
+        // the standard 0-5 quality scale, since a full 0-5 picker is more
+        // friction than a daily review flow needs.
+        function gradeCard(card, quality) {
+            let ef = card.ease_factor;
+            let interval = card.interval_days;
+            let reps = card.repetitions;
+
+            if (quality < 3) {
+                reps = 0;
+                interval = 1;
+            } else {
+                if (reps === 0) interval = 1;
+                else if (reps === 1) interval = 6;
+                else interval = Math.round(interval * ef);
+                reps += 1;
+            }
+
+            ef = Math.max(1.3, ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)));
+
+            const nextDate = new Date();
+            nextDate.setDate(nextDate.getDate() + interval);
+
+            return {
+                ease_factor: ef,
+                interval_days: interval,
+                repetitions: reps,
+                next_review_date: nextDate.toISOString().slice(0, 10),
+                last_reviewed_at: new Date().toISOString(),
+            };
+        }
+
+        function renderSignedOut() {
+            const pageMain = document.getElementById('pageMain');
+            pageMain.innerHTML = `
+                <div class="content-card">
+                    <h1>Immerse</h1>
+                    <p class="subtitle">Sign in to upload course materials and start studying.</p>
+                </div>
+            `;
+        }
+
+        let immerseRenderedUserId = null;
+
+        async function renderSignedIn(session) {
+            const userId = session.user.id;
+            const pageMain = document.getElementById('pageMain');
+
+            pageMain.innerHTML = `
+                <div class="content-card">
+                    <h1>Immerse</h1>
+                    <p class="subtitle" id="reviewSummary">Loading review queue…</p>
+                    <button class="auth-btn immerse-start-btn" id="startReviewBtn" type="button" style="display:none;">Start Review</button>
+                    <div id="reviewArea"></div>
+                </div>
+
+                <div class="content-card">
+                    <h1>Classes</h1>
+                    <p class="subtitle">Pick a class to upload materials for. Adding a class here also adds it to ECal.</p>
+                    <div class="immerse-class-picker" id="classPicker"></div>
+                </div>
+
+                <div class="content-card" id="materialsCard" style="display:none;">
+                    <h1 id="materialsHeading">Materials</h1>
+                    <p class="subtitle">Upload a syllabus, notes, or slides — Claude reads it and builds flashcards automatically.</p>
+                    <label class="log-photo-upload-btn immerse-upload-btn" for="materialInput">+ Upload Material</label>
+                    <input type="file" accept="application/pdf,image/*" id="materialInput" style="display:none">
+                    <div id="materialsList" class="immerse-materials-list"></div>
+                </div>
+            `;
+
+            let classes = [];
+            let currentClassId = null;
+
+            async function loadReviewSummary() {
+                const today = todayISO();
+                const { count } = await sb.from('cards')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', userId)
+                    .lte('next_review_date', today);
+
+                const summaryEl = document.getElementById('reviewSummary');
+                const startBtn = document.getElementById('startReviewBtn');
+                const due = count || 0;
+
+                if (due === 0) {
+                    summaryEl.textContent = "Nothing due today. Upload material or check back tomorrow.";
+                    startBtn.style.display = 'none';
+                } else {
+                    const shown = Math.min(due, DAILY_REVIEW_BUDGET);
+                    summaryEl.textContent = due > DAILY_REVIEW_BUDGET
+                        ? `${shown} of ${due} due cards queued for today (interleaved across classes).`
+                        : `${due} card${due === 1 ? '' : 's'} due today, interleaved across your classes.`;
+                    startBtn.style.display = 'inline-block';
+                }
+            }
+
+            async function startReview() {
+                const today = todayISO();
+                const { data: dueCards, error } = await sb.from('cards')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .lte('next_review_date', today)
+                    .order('next_review_date', { ascending: true });
+
+                if (error || !dueCards || !dueCards.length) return;
+
+                const byClass = {};
+                dueCards.forEach(c => { (byClass[c.class_id] ||= []).push(c); });
+
+                const queue = [];
+                let progress = true;
+                while (progress && queue.length < DAILY_REVIEW_BUDGET) {
+                    progress = false;
+                    for (const cid of Object.keys(byClass)) {
+                        const list = byClass[cid];
+                        if (list.length) {
+                            queue.push(list.shift());
+                            progress = true;
+                            if (queue.length >= DAILY_REVIEW_BUDGET) break;
+                        }
+                    }
+                }
+
+                document.getElementById('startReviewBtn').style.display = 'none';
+                renderReviewQueue(queue);
+            }
+
+            function classNameFor(classId) {
+                return classes.find(c => c.id === classId)?.name || 'Unknown class';
+            }
+
+            function renderReviewQueue(queue) {
+                let index = 0;
+                const area = document.getElementById('reviewArea');
+
+                function renderCard() {
+                    if (index >= queue.length) {
+                        area.innerHTML = `<p class="immerse-review-done">Session complete — nice work. 🎯</p>`;
+                        loadReviewSummary();
+                        return;
+                    }
+
+                    const card = queue[index];
+                    area.innerHTML = `
+                        <div class="immerse-review-progress">${index + 1} / ${queue.length} · ${escapeHtml(classNameFor(card.class_id))}</div>
+                        <div class="immerse-review-card" id="reviewCard">
+                            <div class="immerse-review-type">${card.card_type}</div>
+                            <div class="immerse-review-front">${escapeHtml(card.front)}</div>
+                            <div class="immerse-review-back" id="reviewBack" style="display:none;">${escapeHtml(card.back)}</div>
+                            <div class="immerse-review-tap" id="revealHint">Tap to reveal</div>
+                        </div>
+                        <div class="immerse-grade-row" id="gradeRow" style="display:none;">
+                            <button class="immerse-grade-btn again" data-quality="2" type="button">Again</button>
+                            <button class="immerse-grade-btn good" data-quality="4" type="button">Good</button>
+                            <button class="immerse-grade-btn easy" data-quality="5" type="button">Easy</button>
+                        </div>
+                    `;
+
+                    document.getElementById('reviewCard').onclick = () => {
+                        document.getElementById('reviewBack').style.display = 'block';
+                        document.getElementById('revealHint').style.display = 'none';
+                        document.getElementById('gradeRow').style.display = 'flex';
+                    };
+
+                    document.getElementById('gradeRow').querySelectorAll('.immerse-grade-btn').forEach(btn => {
+                        btn.onclick = async (e) => {
+                            e.stopPropagation();
+                            const quality = parseInt(btn.dataset.quality, 10);
+                            const update = gradeCard(card, quality);
+                            await sb.from('cards').update(update).eq('id', card.id);
+                            index++;
+                            renderCard();
+                        };
+                    });
+                }
+
+                renderCard();
+            }
+
+            async function loadClasses(selectClassId) {
+                const { data } = await sb.from('classes').select('*').order('name', { ascending: true });
+                classes = data || [];
+
+                const picker = document.getElementById('classPicker');
+                if (!classes.length) {
+                    picker.innerHTML = `<button class="immerse-class-chip immerse-add-class-chip" id="addClassChip" type="button">+ Add your first class</button>`;
+                    document.getElementById('materialsCard').style.display = 'none';
+                    currentClassId = null;
+                } else {
+                    picker.innerHTML = classes.map(c => `
+                        <button class="immerse-class-chip${c.id === (selectClassId || currentClassId) ? ' active' : ''}" data-id="${c.id}" type="button">${escapeHtml(c.name)}</button>
+                    `).join('') + `<button class="immerse-class-chip immerse-add-class-chip" id="addClassChip" type="button">+ Add class</button>`;
+
+                    picker.querySelectorAll('.immerse-class-chip[data-id]').forEach(chip => {
+                        chip.onclick = () => setActiveClass(chip.dataset.id);
+                    });
+
+                    const target = classes.find(c => c.id === selectClassId) ? selectClassId : (classes.find(c => c.id === currentClassId) ? currentClassId : classes[0].id);
+                    setActiveClass(target);
+                }
+
+                document.getElementById('addClassChip').onclick = async () => {
+                    const name = (prompt('New class name:') || '').trim();
+                    if (!name) return;
+                    const { data: newClass, error } = await sb.from('classes').insert({ user_id: userId, name }).select().single();
+                    if (error) { alert("Couldn't add that class: " + error.message); return; }
+                    loadClasses(newClass?.id);
+                };
+            }
+
+            function setActiveClass(classId) {
+                currentClassId = classId;
+                document.querySelectorAll('.immerse-class-chip[data-id]').forEach(chip => {
+                    chip.classList.toggle('active', chip.dataset.id === classId);
+                });
+                document.getElementById('materialsCard').style.display = 'block';
+                document.getElementById('materialsHeading').textContent = `Materials — ${classNameFor(classId)}`;
+                loadMaterials(classId);
+            }
+
+            async function loadMaterials(classId) {
+                const list = document.getElementById('materialsList');
+                list.innerHTML = `<p class="ecal-empty">Loading…</p>`;
+
+                const [{ data: materials }, { data: cardRows }] = await Promise.all([
+                    sb.from('materials').select('*').eq('class_id', classId).order('created_at', { ascending: false }),
+                    sb.from('cards').select('material_id').eq('class_id', classId),
+                ]);
+
+                const countByMaterial = {};
+                (cardRows || []).forEach(r => {
+                    if (r.material_id) countByMaterial[r.material_id] = (countByMaterial[r.material_id] || 0) + 1;
+                });
+
+                if (!materials || !materials.length) {
+                    list.innerHTML = `<p class="ecal-empty">No materials yet for this class.</p>`;
+                    return;
+                }
+
+                list.innerHTML = materials.map(m => `
+                    <div class="ecal-item immerse-material-item" data-id="${m.id}">
+                        <div class="ecal-item-body">
+                            <div class="ecal-item-title">${escapeHtml(m.title)}</div>
+                            <div class="ecal-item-meta" id="materialMeta-${m.id}">${countByMaterial[m.id] ? `${countByMaterial[m.id]} card${countByMaterial[m.id] === 1 ? '' : 's'}` : 'No cards yet'}</div>
+                        </div>
+                        <button class="auth-btn immerse-generate-btn" data-id="${m.id}" type="button">${countByMaterial[m.id] ? 'Regenerate' : 'Generate Cards'}</button>
+                        <button class="ecal-delete-btn immerse-material-delete" data-id="${m.id}" title="Delete">✕</button>
+                    </div>
+                `).join('');
+
+                list.querySelectorAll('.immerse-generate-btn').forEach(btn => {
+                    btn.onclick = async () => {
+                        const material = materials.find(m => m.id === btn.dataset.id);
+                        if (!material) return;
+                        const isRegenerate = btn.textContent.trim() === 'Regenerate';
+                        if (isRegenerate && !confirm('Regenerate cards for this material? This replaces the existing cards and makes another Claude request.')) return;
+                        btn.disabled = true;
+                        btn.textContent = 'Generating…';
+                        try {
+                            const { data: blob, error: dlError } = await sb.storage.from(MATERIALS_BUCKET).download(material.storage_path);
+                            if (dlError) throw dlError;
+                            const base64 = await fileToBase64(blob);
+                            const count = await generateCardsFor(material, base64);
+                            document.getElementById(`materialMeta-${material.id}`).textContent = `${count} card${count === 1 ? '' : 's'}`;
+                            btn.textContent = 'Regenerate';
+                            loadReviewSummary();
+                        } catch (err) {
+                            alert("Couldn't generate cards: " + (err.message || err));
+                            btn.textContent = 'Generate Cards';
+                        } finally {
+                            btn.disabled = false;
+                        }
+                    };
+                });
+
+                list.querySelectorAll('.immerse-material-delete').forEach(btn => {
+                    btn.onclick = async () => {
+                        const material = materials.find(m => m.id === btn.dataset.id);
+                        if (!material) return;
+                        if (!confirm(`Delete "${material.title}"? Its generated cards will be kept but unlinked.`)) return;
+                        await sb.storage.from(MATERIALS_BUCKET).remove([material.storage_path]);
+                        await sb.from('materials').delete().eq('id', material.id);
+                        loadMaterials(classId);
+                    };
+                });
+            }
+
+            async function generateCardsFor(material, base64) {
+                const response = await fetch(IMMERSE_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileBase64: base64,
+                        mimeType: material.mime_type,
+                        className: classNameFor(material.class_id),
+                        materialTitle: material.title,
+                    }),
+                });
+
+                const data = await response.json();
+                if (data.errorType) throw new Error(data.error);
+
+                const cards = data.cards || [];
+
+                // Regenerating replaces this material's cards rather than
+                // piling duplicates on top -- otherwise clicking it twice
+                // doubles up the deck (and doubles the API spend for no
+                // reason).
+                await sb.from('cards').delete().eq('material_id', material.id);
+
+                if (!cards.length) return 0;
+
+                const rows = cards.map(c => ({
+                    user_id: userId,
+                    class_id: material.class_id,
+                    material_id: material.id,
+                    card_type: c.type,
+                    front: c.front,
+                    back: c.back,
+                }));
+
+                const { error } = await sb.from('cards').insert(rows);
+                if (error) throw error;
+                return rows.length;
+            }
+
+            document.getElementById('materialInput').onchange = async (e) => {
+                const file = e.target.files[0];
+                e.target.value = '';
+                if (!file || !currentClassId) return;
+
+                if (file.size > MAX_UPLOAD_BYTES) {
+                    alert("That file's too large (20MB max).");
+                    return;
+                }
+
+                const path = `${userId}/${Date.now()}_${file.name}`;
+                const { error: uploadError } = await sb.storage.from(MATERIALS_BUCKET).upload(path, file);
+                if (uploadError) { alert("Upload failed: " + uploadError.message); return; }
+
+                const { data: inserted, error: insertError } = await sb.from('materials').insert({
+                    user_id: userId,
+                    class_id: currentClassId,
+                    title: file.name,
+                    storage_path: path,
+                    mime_type: file.type || 'application/octet-stream',
+                }).select().single();
+
+                if (insertError) { alert("Couldn't save that upload: " + insertError.message); return; }
+
+                await loadMaterials(currentClassId);
+
+                // Auto-generate right away -- one less click between
+                // "uploaded" and "ready to study".
+                const btn = document.querySelector(`.immerse-generate-btn[data-id="${inserted.id}"]`);
+                if (btn) btn.click();
+            };
+
+            document.getElementById('startReviewBtn').onclick = startReview;
+
+            await loadReviewSummary();
+            await loadClasses();
+        }
+
+        async function initImmersePage() {
+            const { data: { session } } = await sb.auth.getSession();
+            if (session) {
+                immerseRenderedUserId = session.user.id;
+                renderSignedIn(session);
+            } else {
+                renderSignedOut();
+            }
+
+            sb.auth.onAuthStateChange((_event, newSession) => {
+                if (newSession && newSession.user.id !== immerseRenderedUserId) {
+                    immerseRenderedUserId = newSession.user.id;
+                    renderSignedIn(newSession);
+                } else if (!newSession && immerseRenderedUserId !== null) {
+                    immerseRenderedUserId = null;
+                    renderSignedOut();
+                }
+            });
+        }
+
         initVeloNav('immerse');
+        initImmersePage();
     </script>
 </body>
 </html>

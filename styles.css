@@ -1838,8 +1838,161 @@ section#home {
     color: rgba(255, 255, 255, 0.35);
     letter-spacing: 2px;
     text-transform: uppercase;
-    pointer-events: none; 
+    pointer-events: none;
     transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease;
     z-index: 1;
+}
+
+/* --- Immerse: class picker, materials, spaced-repetition review --- */
+
+.immerse-start-btn {
+    margin-bottom: 18px;
+}
+
+.immerse-class-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.immerse-class-chip {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 9px 16px;
+    border-radius: 14px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.immerse-class-chip:hover {
+    background: rgba(162, 196, 214, 0.1);
+    border-color: rgba(162, 196, 214, 0.25);
+}
+
+.immerse-class-chip.active {
+    background: rgba(162, 196, 214, 0.18);
+    border-color: rgba(162, 196, 214, 0.45);
+    color: #fff;
+}
+
+.immerse-add-class-chip {
+    border-style: dashed;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.immerse-upload-btn {
+    margin-bottom: 18px;
+}
+
+.immerse-materials-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.immerse-material-item {
+    align-items: center;
+}
+
+.immerse-generate-btn {
+    flex-shrink: 0;
+    font-size: 0.74rem;
+    padding: 7px 12px;
+}
+
+.immerse-review-progress {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+}
+
+.immerse-review-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 32px 28px;
+    cursor: pointer;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.immerse-review-type {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #92c2dd;
+}
+
+.immerse-review-front {
+    font-size: 1.05rem;
+    color: var(--white);
+    line-height: 1.6;
+}
+
+.immerse-review-back {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.6;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.immerse-review-tap {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.3);
+    text-align: center;
+    margin-top: auto;
+}
+
+.immerse-grade-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.immerse-grade-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.immerse-grade-btn.again {
+    background: rgba(255, 118, 118, 0.12);
+    border-color: rgba(255, 118, 118, 0.3);
+    color: #ff9d9d;
+}
+.immerse-grade-btn.again:hover { background: rgba(255, 118, 118, 0.2); }
+
+.immerse-grade-btn.good {
+    background: rgba(162, 196, 214, 0.14);
+    border-color: rgba(162, 196, 214, 0.35);
+    color: #cfe6f2;
+}
+.immerse-grade-btn.good:hover { background: rgba(162, 196, 214, 0.24); }
+
+.immerse-grade-btn.easy {
+    background: rgba(120, 210, 150, 0.12);
+    border-color: rgba(120, 210, 150, 0.3);
+    color: #a6e6bc;
+}
+.immerse-grade-btn.easy:hover { background: rgba(120, 210, 150, 0.2); }
+
+.immerse-review-done {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.7);
+    text-align: center;
+    padding: 24px 0;
 }
 
