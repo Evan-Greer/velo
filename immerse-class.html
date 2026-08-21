@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VELO — Immerse</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Titillium+Web:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="scrollable-page">
+
+    <header>
+        <a href="index.html" class="logo">VELO</a>
+        <nav class="tab-nav" id="tabNav"></nav>
+        <div class="auth-control" id="authControl"></div>
+    </header>
+
+    <main class="page-main immerse-page" id="pageMain"></main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="shared.js"></script>
+    <script>
+        const MATERIALS_BUCKET = 'class-materials';
+        const IMMERSE_FUNCTION_URL = "https://vgkbefoasgqmainbmvhz.supabase.co/functions/v1/immerse-brain";
+        const IMMERSE_PLANNER_URL = "https://vgkbefoasgqmainbmvhz.supabase.co/functions/v1/immerse-planner";
+        const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
+
+        const classId = new URLSearchParams(window.location.search).get('id');
+
+        function todayISO() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function formatDueDate(iso) {
+            if (!iso) return '';
+            const [y, m, d] = iso.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str ?? '';
+            return div.innerHTML;
+        }
+
+        function fileToBase64(fileOrBlob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1] || '');
+                reader.onerror = reject;
+                reader.readAsDataURL(fileOrBlob);
+            });
+        }
+
+        function renderSignedOut() {
+            document.getElementById('pageMain').innerHTML = `
+                <div class="immerse-wide-card">
+                    <h1>Immerse</h1>
+                    <p class="subtitle">Sign in to view this class.</p>
+                </div>
+            `;
+        }
+
+        function renderNoClass() {
+            document.getElementById('pageMain').innerHTML = `
+                <div class="immerse-wide-card">
+                    <a class="immerse-back-link" href="immerse.html">← Back to Immerse</a>
+                    <h1>Class not found</h1>
+                    <p class="subtitle">This class doesn't exist or isn't yours.</p>
+                </div>
+            `;
+        }
+
+        let immerseClassRenderedUserId = null;
+
+        async function renderSignedIn(session) {
+            const userId = session.user.id;
+            const pageMain = document.getElementById('pageMain');
+
+            if (!classId) { renderNoClass(); return; }
+
+            const { data: cls, error: classError } = await sb.from('classes').select('*').eq('id', classId).single();
+            if (classError || !cls) { renderNoClass(); return; }
+
+            pageMain.innerHTML = `
+                <div class="immerse-wide-card">
+                    <a class="immerse-back-link" href="immerse.html">← Back to Immerse</a>
+                    <div class="immerse-class-header">
+                        <h1 style="margin-bottom:0;">${escapeHtml(cls.name)}</h1>
+                        <div class="immerse-priority-picker" id="priorityPicker">
+                            <button class="immerse-priority-btn low${cls.priority === 'low' ? ' active low' : ''}" data-priority="low" type="button">Low</button>
+                            <button class="immerse-priority-btn normal${cls.priority === 'normal' ? ' active normal' : ''}" data-priority="normal" type="button">Normal</button>
+                            <button class="immerse-priority-btn high${cls.priority === 'high' ? ' active high' : ''}" data-priority="high" type="button">High Priority</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="immerse-class-grid">
+                    <div class="immerse-wide-card">
+                        <h1>Today's Lesson</h1>
+                        <p class="subtitle">Log what was covered so the study plan knows what's fresh.</p>
+                        <div class="immerse-lesson-form">
+                            <textarea class="velo-textarea" id="lessonInput" rows="3" placeholder="What did you cover in class today?"></textarea>
+                            <button class="auth-btn" id="logLessonBtn" type="button">Log Lesson</button>
+                        </div>
+                        <div id="lessonsList" style="margin-top:16px;"></div>
+                    </div>
+
+                    <div class="immerse-wide-card">
+                        <h1>Upcoming</h1>
+                        <p class="subtitle">HW and exam dates for this class — shared with ECal.</p>
+                        <div class="immerse-upcoming-list" id="upcomingList"></div>
+                        <div class="immerse-upcoming-form">
+                            <input type="text" class="immerse-form-input" id="upcomingTitle" placeholder="e.g. Problem Set 4, Midterm">
+                            <select class="immerse-form-input" id="upcomingType">
+                                <option value="homework">Homework</option>
+                                <option value="quiz">Quiz</option>
+                                <option value="test">Test/Exam</option>
+                                <option value="project">Project</option>
+                            </select>
+                            <input type="date" class="immerse-form-input" id="upcomingDate" min="${todayISO()}">
+                            <button class="auth-btn" id="addUpcomingBtn" type="button">Add</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="immerse-wide-card">
+                    <h1>Materials</h1>
+                    <p class="subtitle">Upload a syllabus, notes, or slides — Claude reads it and builds flashcards automatically.</p>
+                    <label class="log-photo-upload-btn immerse-upload-btn" for="materialInput">+ Upload Material</label>
+                    <input type="file" accept="application/pdf,image/*" id="materialInput" style="display:none">
+                    <div id="materialsList" class="immerse-materials-list"></div>
+                </div>
+
+                <div class="immerse-wide-card">
+                    <h1>Study Plan</h1>
+                    <p class="subtitle">Generated from this class's lessons, deadlines, priority, and flashcard status.</p>
+                    <button class="auth-btn immerse-plan-btn" id="generatePlanBtn" type="button">${cls.study_plan ? 'Regenerate Study Plan' : 'Generate Study Plan'}</button>
+                    <div id="planArea"></div>
+                </div>
+            `;
+
+            if (cls.study_plan) renderPlan(cls.study_plan, cls.study_plan_generated_at);
+
+            document.getElementById('priorityPicker').querySelectorAll('.immerse-priority-btn').forEach(btn => {
+                btn.onclick = async () => {
+                    const priority = btn.dataset.priority;
+                    document.querySelectorAll('.immerse-priority-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    cls.priority = priority;
+                    await sb.from('classes').update({ priority }).eq('id', classId);
+                };
+            });
+
+            async function loadLessons() {
+                const { data } = await sb.from('lessons').select('*').eq('class_id', classId).order('entry_date', { ascending: false }).limit(5);
+                const el = document.getElementById('lessonsList');
+                if (!data || !data.length) {
+                    el.innerHTML = `<p class="ecal-empty">No lessons logged yet.</p>`;
+                    return;
+                }
+                el.innerHTML = data.map(l => `
+                    <div class="history-entry" style="margin-bottom:8px;">
+                        <div class="entry-date">${formatDueDate(l.entry_date)}</div>
+                        <div class="entry-text">${escapeHtml(l.content)}</div>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('logLessonBtn').onclick = async () => {
+                const input = document.getElementById('lessonInput');
+                const content = input.value.trim();
+                if (!content) return;
+                const { error } = await sb.from('lessons').insert({ user_id: userId, class_id: classId, content });
+                if (error) { alert("Couldn't log that: " + error.message); return; }
+                input.value = '';
+                loadLessons();
+            };
+
+            async function loadUpcoming() {
+                const { data } = await sb.from('classwork')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .eq('class_name', cls.name)
+                    .gte('due_date', todayISO())
+                    .order('due_date', { ascending: true });
+
+                const el = document.getElementById('upcomingList');
+                if (!data || !data.length) {
+                    el.innerHTML = `<p class="ecal-empty">Nothing upcoming for this class.</p>`;
+                    return;
+                }
+                el.innerHTML = data.map(u => `
+                    <div class="immerse-upcoming-item" data-id="${u.id}">
+                        <div><span class="immerse-upcoming-type">${u.type}</span>${escapeHtml(u.title)} — ${formatDueDate(u.due_date)}</div>
+                        <button class="ecal-delete-btn immerse-upcoming-delete" data-id="${u.id}" title="Delete">✕</button>
+                    </div>
+                `).join('');
+
+                el.querySelectorAll('.immerse-upcoming-delete').forEach(btn => {
+                    btn.onclick = async () => {
+                        await sb.from('classwork').delete().eq('id', btn.dataset.id);
+                        loadUpcoming();
+                    };
+                });
+            }
+
+            document.getElementById('addUpcomingBtn').onclick = async () => {
+                const title = document.getElementById('upcomingTitle').value.trim();
+                const type = document.getElementById('upcomingType').value;
+                const dueDate = document.getElementById('upcomingDate').value;
+                if (!title || !dueDate) { alert('Give it a title and a due date.'); return; }
+
+                const { error } = await sb.from('classwork').insert({
+                    user_id: userId,
+                    class_name: cls.name,
+                    title,
+                    type,
+                    due_date: dueDate,
+                });
+                if (error) { alert("Couldn't add that: " + error.message); return; }
+
+                document.getElementById('upcomingTitle').value = '';
+                document.getElementById('upcomingDate').value = '';
+                loadUpcoming();
+            };
+
+            async function loadMaterials() {
+                const list = document.getElementById('materialsList');
+                list.innerHTML = `<p class="ecal-empty">Loading…</p>`;
+
+                const [{ data: materials }, { data: cardRows }] = await Promise.all([
+                    sb.from('materials').select('*').eq('class_id', classId).order('created_at', { ascending: false }),
+                    sb.from('cards').select('material_id').eq('class_id', classId),
+                ]);
+
+                const countByMaterial = {};
+                (cardRows || []).forEach(r => {
+                    if (r.material_id) countByMaterial[r.material_id] = (countByMaterial[r.material_id] || 0) + 1;
+                });
+
+                if (!materials || !materials.length) {
+                    list.innerHTML = `<p class="ecal-empty">No materials yet for this class.</p>`;
+                    return;
+                }
+
+                list.innerHTML = materials.map(m => `
+                    <div class="ecal-item immerse-material-item" data-id="${m.id}">
+                        <div class="ecal-item-body">
+                            <div class="ecal-item-title">${escapeHtml(m.title)}</div>
+                            <div class="ecal-item-meta" id="materialMeta-${m.id}">${countByMaterial[m.id] ? `${countByMaterial[m.id]} card${countByMaterial[m.id] === 1 ? '' : 's'}` : 'No cards yet'}</div>
+                        </div>
+                        <button class="auth-btn immerse-generate-btn" data-id="${m.id}" type="button">${countByMaterial[m.id] ? 'Regenerate' : 'Generate Cards'}</button>
+                        <button class="ecal-delete-btn immerse-material-delete" data-id="${m.id}" title="Delete">✕</button>
+                    </div>
+                `).join('');
+
+                list.querySelectorAll('.immerse-generate-btn').forEach(btn => {
+                    btn.onclick = async () => {
+                        const material = materials.find(m => m.id === btn.dataset.id);
+                        if (!material) return;
+                        const isRegenerate = btn.textContent.trim() === 'Regenerate';
+                        if (isRegenerate && !confirm('Regenerate cards for this material? This replaces the existing cards and makes another Claude request.')) return;
+                        btn.disabled = true;
+                        btn.textContent = 'Generating…';
+                        try {
+                            const { data: blob, error: dlError } = await sb.storage.from(MATERIALS_BUCKET).download(material.storage_path);
+                            if (dlError) throw dlError;
+                            const base64 = await fileToBase64(blob);
+                            const count = await generateCardsFor(material, base64);
+                            document.getElementById(`materialMeta-${material.id}`).textContent = `${count} card${count === 1 ? '' : 's'}`;
+                            btn.textContent = 'Regenerate';
+                        } catch (err) {
+                            alert("Couldn't generate cards: " + (err.message || err));
+                            btn.textContent = 'Generate Cards';
+                        } finally {
+                            btn.disabled = false;
+                        }
+                    };
+                });
+
+                list.querySelectorAll('.immerse-material-delete').forEach(btn => {
+                    btn.onclick = async () => {
+                        const material = materials.find(m => m.id === btn.dataset.id);
+                        if (!material) return;
+                        if (!confirm(`Delete "${material.title}"? Its generated cards will be kept but unlinked.`)) return;
+                        await sb.storage.from(MATERIALS_BUCKET).remove([material.storage_path]);
+                        await sb.from('materials').delete().eq('id', material.id);
+                        loadMaterials();
+                    };
+                });
+            }
+
+            async function generateCardsFor(material, base64) {
+                const response = await fetch(IMMERSE_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileBase64: base64,
+                        mimeType: material.mime_type,
+                        className: cls.name,
+                        materialTitle: material.title,
+                    }),
+                });
+
+                const data = await response.json();
+                if (data.errorType) throw new Error(data.error);
+
+                const cards = data.cards || [];
+
+                // Regenerating replaces this material's cards rather than
+                // piling duplicates on top.
+                await sb.from('cards').delete().eq('material_id', material.id);
+
+                if (!cards.length) return 0;
+
+                const rows = cards.map(c => ({
+                    user_id: userId,
+                    class_id: classId,
+                    material_id: material.id,
+                    card_type: c.type,
+                    front: c.front,
+                    back: c.back,
+                }));
+
+                const { error } = await sb.from('cards').insert(rows);
+                if (error) throw error;
+                return rows.length;
+            }
+
+            document.getElementById('materialInput').onchange = async (e) => {
+                const file = e.target.files[0];
+                e.target.value = '';
+                if (!file) return;
+
+                if (file.size > MAX_UPLOAD_BYTES) {
+                    alert("That file's too large (20MB max).");
+                    return;
+                }
+
+                const path = `${userId}/${Date.now()}_${file.name}`;
+                const { error: uploadError } = await sb.storage.from(MATERIALS_BUCKET).upload(path, file);
+                if (uploadError) { alert("Upload failed: " + uploadError.message); return; }
+
+                const { data: inserted, error: insertError } = await sb.from('materials').insert({
+                    user_id: userId,
+                    class_id: classId,
+                    title: file.name,
+                    storage_path: path,
+                    mime_type: file.type || 'application/octet-stream',
+                }).select().single();
+
+                if (insertError) { alert("Couldn't save that upload: " + insertError.message); return; }
+
+                await loadMaterials();
+
+                // Auto-generate right away -- one less click between
+                // "uploaded" and "ready to study".
+                const btn = document.querySelector(`.immerse-generate-btn[data-id="${inserted.id}"]`);
+                if (btn) btn.click();
+            };
+
+            function renderPlan(plan, generatedAt) {
+                const area = document.getElementById('planArea');
+                area.innerHTML = `
+                    <div class="immerse-plan-list">
+                        ${plan.map(item => `
+                            <div class="immerse-plan-item">
+                                <div class="immerse-plan-headline">${escapeHtml(item.headline)}</div>
+                                <div class="immerse-plan-detail">${escapeHtml(item.detail)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${generatedAt ? `<div class="immerse-plan-timestamp">Generated ${new Date(generatedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>` : ''}
+                `;
+            }
+
+            document.getElementById('generatePlanBtn').onclick = async () => {
+                const btn = document.getElementById('generatePlanBtn');
+                if (cls.study_plan && !confirm('Generate a new study plan? This replaces the current one and makes another Claude request.')) return;
+
+                btn.disabled = true;
+                btn.textContent = 'Generating…';
+                try {
+                    const [{ data: lessons }, { data: upcoming }, { data: allCards }] = await Promise.all([
+                        sb.from('lessons').select('entry_date, content').eq('class_id', classId).order('entry_date', { ascending: false }).limit(5),
+                        sb.from('classwork').select('title, type, due_date').eq('user_id', userId).eq('class_name', cls.name).gte('due_date', todayISO()).order('due_date', { ascending: true }).limit(5),
+                        sb.from('cards').select('card_type, next_review_date').eq('class_id', classId),
+                    ]);
+
+                    const today = todayISO();
+                    const cardStats = {
+                        total: (allCards || []).length,
+                        due: (allCards || []).filter(c => c.next_review_date <= today).length,
+                        procedural: (allCards || []).filter(c => c.card_type === 'procedural').length,
+                        declarative: (allCards || []).filter(c => c.card_type === 'declarative').length,
+                    };
+
+                    const response = await fetch(IMMERSE_PLANNER_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            className: cls.name,
+                            priority: cls.priority,
+                            lessons: lessons || [],
+                            upcoming: upcoming || [],
+                            cardStats,
+                        }),
+                    });
+
+                    const data = await response.json();
+                    if (data.errorType) throw new Error(data.error);
+
+                    const plan = data.plan || [];
+                    const generatedAt = new Date().toISOString();
+
+                    await sb.from('classes').update({ study_plan: plan, study_plan_generated_at: generatedAt }).eq('id', classId);
+                    cls.study_plan = plan;
+                    renderPlan(plan, generatedAt);
+                    btn.textContent = 'Regenerate Study Plan';
+                } catch (err) {
+                    alert("Couldn't generate a study plan: " + (err.message || err));
+                    btn.textContent = cls.study_plan ? 'Regenerate Study Plan' : 'Generate Study Plan';
+                } finally {
+                    btn.disabled = false;
+                }
+            };
+
+            await loadLessons();
+            await loadUpcoming();
+            await loadMaterials();
+        }
+
+        async function initImmerseClassPage() {
+            const { data: { session } } = await sb.auth.getSession();
+            if (session) {
+                immerseClassRenderedUserId = session.user.id;
+                renderSignedIn(session);
+            } else {
+                renderSignedOut();
+            }
+
+            sb.auth.onAuthStateChange((_event, newSession) => {
+                if (newSession && newSession.user.id !== immerseClassRenderedUserId) {
+                    immerseClassRenderedUserId = newSession.user.id;
+                    renderSignedIn(newSession);
+                } else if (!newSession && immerseClassRenderedUserId !== null) {
+                    immerseClassRenderedUserId = null;
+                    renderSignedOut();
+                }
+            });
+        }
+
+        initVeloNav('immerse');
+        initImmerseClassPage();
+    </script>
+</body>
+</html>

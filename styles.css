@@ -1996,3 +1996,280 @@ section#home {
     padding: 24px 0;
 }
 
+/* --- Immerse: wide dashboard layout, class tabs, tentative schedule --- */
+
+.immerse-page {
+    max-width: 1200px;
+    width: 100%;
+    align-items: stretch;
+}
+
+.immerse-wide-card {
+    width: 100%;
+    padding: 32px 40px;
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.immerse-wide-card h1 {
+    font-family: 'Titillium Web', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--white);
+    margin-bottom: 6px;
+}
+
+.immerse-class-tabs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+}
+
+.immerse-class-tab {
+    display: block;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    padding: 18px 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.immerse-class-tab:hover {
+    background: rgba(162, 196, 214, 0.1);
+    border-color: rgba(162, 196, 214, 0.3);
+    transform: translateY(-2px);
+}
+
+.immerse-class-tab-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 8px;
+}
+
+.immerse-class-tab-meta {
+    font-size: 0.76rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.immerse-add-class-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-style: dashed;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.9rem;
+    min-height: 76px;
+    background: none;
+}
+
+.immerse-priority-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+.immerse-priority-dot.low { background: rgba(255, 255, 255, 0.25); }
+.immerse-priority-dot.normal { background: #92c2dd; }
+.immerse-priority-dot.high { background: #ff9d9d; }
+
+.immerse-schedule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.immerse-schedule-item {
+    padding: 16px 20px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.immerse-schedule-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.immerse-schedule-class {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--white);
+}
+
+.immerse-schedule-urgency {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.immerse-schedule-detail {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.5;
+}
+
+/* --- Immerse: per-class page --- */
+
+.immerse-back-link {
+    display: inline-block;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.45);
+    text-decoration: none;
+    margin-bottom: 4px;
+}
+
+.immerse-back-link:hover {
+    color: #92c2dd;
+}
+
+.immerse-class-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.immerse-priority-picker {
+    display: flex;
+    gap: 8px;
+}
+
+.immerse-priority-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.6);
+    padding: 7px 14px;
+    border-radius: 12px;
+    font-size: 0.76rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.immerse-priority-btn:hover {
+    border-color: rgba(162, 196, 214, 0.3);
+}
+
+.immerse-priority-btn.active.low { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.3); color: #fff; }
+.immerse-priority-btn.active.normal { background: rgba(162, 196, 214, 0.18); border-color: rgba(162, 196, 214, 0.45); color: #fff; }
+.immerse-priority-btn.active.high { background: rgba(255, 118, 118, 0.15); border-color: rgba(255, 118, 118, 0.4); color: #fff; }
+
+.immerse-class-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 800px) {
+    .immerse-class-grid { grid-template-columns: 1fr; }
+}
+
+.immerse-lesson-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.immerse-upcoming-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.immerse-upcoming-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.82rem;
+}
+
+.immerse-upcoming-type {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #92c2dd;
+    margin-right: 8px;
+}
+
+.immerse-upcoming-form {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr auto;
+    gap: 8px;
+}
+
+@media (max-width: 700px) {
+    .immerse-upcoming-form { grid-template-columns: 1fr 1fr; }
+}
+
+.immerse-form-input {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: var(--white);
+    font-family: inherit;
+    font-size: 0.82rem;
+    outline: none;
+    color-scheme: dark;
+}
+
+.immerse-form-input:focus {
+    border-color: rgba(162, 196, 214, 0.3);
+}
+
+.immerse-plan-btn {
+    margin-top: 8px;
+}
+
+.immerse-plan-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.immerse-plan-item {
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: rgba(162, 196, 214, 0.06);
+    border: 1px solid rgba(162, 196, 214, 0.15);
+}
+
+.immerse-plan-headline {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 4px;
+}
+
+.immerse-plan-detail {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.65);
+    line-height: 1.5;
+}
+
+.immerse-plan-timestamp {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.35);
+    margin-top: 10px;
+}
+
