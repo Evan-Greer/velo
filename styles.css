@@ -1931,6 +1931,11 @@ section#home {
 .immerse-material-upload-form .immerse-upload-btn {
     margin-bottom: 0;
     text-align: center;
+    white-space: nowrap;
+}
+
+.immerse-material-upload-form .auth-btn {
+    white-space: nowrap;
 }
 
 .immerse-file-chosen {
@@ -2342,6 +2347,9 @@ section#home {
 }
 
 .immerse-form-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px;
