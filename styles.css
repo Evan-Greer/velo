@@ -1916,40 +1916,28 @@ section#home {
     gap: 10px;
 }
 
-.immerse-unit-row {
-    display: flex;
-    flex-wrap: wrap;
+.immerse-material-upload-form {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr auto auto;
     gap: 8px;
-    margin-bottom: 18px;
+    align-items: center;
+    margin-bottom: 10px;
 }
 
-.immerse-unit-pill {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.55);
-    padding: 6px 14px;
-    border-radius: 999px;
+@media (max-width: 900px) {
+    .immerse-material-upload-form { grid-template-columns: 1fr 1fr; }
+}
+
+.immerse-material-upload-form .immerse-upload-btn {
+    margin-bottom: 0;
+    text-align: center;
+}
+
+.immerse-file-chosen {
+    display: block;
     font-size: 0.76rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-}
-
-.immerse-unit-pill:hover {
-    border-color: rgba(162, 196, 214, 0.3);
-    color: #fff;
-}
-
-.immerse-unit-pill.active {
-    background: rgba(162, 196, 214, 0.16);
-    border-color: rgba(162, 196, 214, 0.4);
-    color: #fff;
-}
-
-.immerse-unit-pill.add {
-    color: rgba(255, 255, 255, 0.35);
-    border-style: dashed;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 18px;
 }
 
 .immerse-material-unit-badge {
@@ -2207,35 +2195,24 @@ section#home {
     text-decoration: line-through;
 }
 
-/* --- Immerse: Classes sidebar + Materials panel --- */
-
-.immerse-bottom-grid {
-    display: grid;
-    grid-template-columns: 260px 1fr;
-    gap: 24px;
-    align-items: stretch;
-    width: 100%;
-}
-
-@media (max-width: 800px) {
-    .immerse-bottom-grid { grid-template-columns: 1fr; }
-}
+/* --- Immerse: Classes list (full width) --- */
 
 .immerse-class-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
 }
 
 .immerse-class-list-item {
     display: flex;
     align-items: center;
-    background: none;
-    border: none;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     text-align: left;
-    padding: 10px 12px;
-    border-radius: 10px;
-    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none;
+    padding: 14px 16px;
+    border-radius: 14px;
+    color: rgba(255, 255, 255, 0.65);
     font-family: inherit;
     font-size: 0.88rem;
     cursor: pointer;
@@ -2243,19 +2220,22 @@ section#home {
 }
 
 .immerse-class-list-item:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(162, 196, 214, 0.2);
     color: #fff;
 }
 
 .immerse-class-list-item.active {
     background: rgba(162, 196, 214, 0.12);
+    border-color: rgba(162, 196, 214, 0.35);
     color: #fff;
     font-weight: 600;
 }
 
 .immerse-add-class-item {
     color: rgba(255, 255, 255, 0.35);
-    margin-top: 6px;
+    border-style: dashed;
+    justify-content: center;
 }
 
 .immerse-priority-dot {
@@ -2269,18 +2249,6 @@ section#home {
 .immerse-priority-dot.low { background: rgba(255, 255, 255, 0.25); }
 .immerse-priority-dot.normal { background: #92c2dd; }
 .immerse-priority-dot.high { background: #ff9d9d; }
-
-.immerse-manage-link {
-    display: inline-block;
-    margin-top: 18px;
-    font-size: 0.82rem;
-    color: #92c2dd;
-    text-decoration: none;
-}
-
-.immerse-manage-link:hover {
-    color: #fff;
-}
 
 /* --- Immerse: per-class page --- */
 
@@ -2330,12 +2298,8 @@ section#home {
 
 .immerse-class-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 20px;
-}
-
-@media (max-width: 800px) {
-    .immerse-class-grid { grid-template-columns: 1fr; }
 }
 
 .immerse-lesson-form {

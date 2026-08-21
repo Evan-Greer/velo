@@ -21,8 +21,20 @@
     <script src="shared.js"></script>
     <script>
         const IMMERSE_PLANNER_URL = "https://vgkbefoasgqmainbmvhz.supabase.co/functions/v1/immerse-planner";
+        const IMMERSE_FUNCTION_URL = "https://vgkbefoasgqmainbmvhz.supabase.co/functions/v1/immerse-brain";
+        const MATERIALS_BUCKET = 'class-materials';
+        const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
 
         const classId = new URLSearchParams(window.location.search).get('id');
+
+        function fileToBase64(fileOrBlob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1] || '');
+                reader.onerror = reject;
+                reader.readAsDataURL(fileOrBlob);
+            });
+        }
 
         function todayISO() {
             const d = new Date();
@@ -117,6 +129,21 @@
                             <input type="time" class="immerse-form-input" id="upcomingTime">
                             <button class="auth-btn" id="addUpcomingBtn" type="button">Add</button>
                         </div>
+                    </div>
+
+                    <div class="immerse-wide-card">
+                        <h1>Materials</h1>
+                        <p class="subtitle">Upload a syllabus, notes, or slides — Claude reads it and builds flashcards automatically.</p>
+                        <div class="immerse-material-upload-form">
+                            <input type="text" class="immerse-form-input" id="materialTitleInput" placeholder="Title (e.g. Lecture 4 Notes)">
+                            <input type="date" class="immerse-form-input" id="materialDateInput" value="${todayISO()}">
+                            <select class="immerse-form-input" id="materialUnitSelect"></select>
+                            <label class="log-photo-upload-btn immerse-upload-btn" for="materialFileInput" id="materialFileLabel">Choose File</label>
+                            <button class="auth-btn" id="uploadMaterialBtn" type="button">Upload</button>
+                        </div>
+                        <input type="file" accept="application/pdf,image/*" id="materialFileInput" style="display:none">
+                        <span class="immerse-file-chosen" id="materialFileChosen">No file chosen.</span>
+                        <div id="materialsList" class="immerse-materials-list"></div>
                     </div>
                 </div>
 
@@ -225,6 +252,192 @@
                 scheduleStudyPlanRegen();
             };
 
+            let units = [];
+
+            async function loadUnits() {
+                const { data } = await sb.from('units').select('*').eq('class_id', classId).order('created_at', { ascending: true });
+                units = data || [];
+
+                const select = document.getElementById('materialUnitSelect');
+                const prevValue = select.value;
+                select.innerHTML = `<option value="">No unit</option>`
+                    + units.map(u => `<option value="${u.id}">${escapeHtml(u.name)}</option>`).join('')
+                    + `<option value="__new__">+ New unit…</option>`;
+                if (units.some(u => u.id === prevValue)) select.value = prevValue;
+            }
+
+            document.getElementById('materialUnitSelect').onchange = async (e) => {
+                if (e.target.value !== '__new__') return;
+                const name = (prompt('New unit name (e.g. "Unit 1", "Midterm 1"):') || '').trim();
+                if (!name) { e.target.value = ''; return; }
+                const { data: inserted, error } = await sb.from('units').insert({ user_id: userId, class_id: classId, name }).select().single();
+                if (error) { alert("Couldn't add that unit: " + error.message); e.target.value = ''; return; }
+                await loadUnits();
+                document.getElementById('materialUnitSelect').value = inserted.id;
+            };
+
+            document.getElementById('materialFileInput').onchange = (e) => {
+                const file = e.target.files[0];
+                document.getElementById('materialFileChosen').textContent = file ? file.name : 'No file chosen.';
+            };
+
+            async function loadMaterials() {
+                const list = document.getElementById('materialsList');
+                list.innerHTML = `<p class="ecal-empty">Loading…</p>`;
+
+                const [{ data: materials }, { data: cardRows }] = await Promise.all([
+                    sb.from('materials').select('*').eq('class_id', classId).order('material_date', { ascending: false, nullsFirst: false }),
+                    sb.from('cards').select('material_id').eq('class_id', classId),
+                ]);
+
+                const countByMaterial = {};
+                (cardRows || []).forEach(r => {
+                    if (r.material_id) countByMaterial[r.material_id] = (countByMaterial[r.material_id] || 0) + 1;
+                });
+
+                if (!materials || !materials.length) {
+                    list.innerHTML = `<p class="ecal-empty">No materials yet for this class.</p>`;
+                    return;
+                }
+
+                const unitNameFor = (unitId) => units.find(u => u.id === unitId)?.name || '';
+
+                list.innerHTML = materials.map(m => `
+                    <div class="ecal-item immerse-material-item" data-id="${m.id}">
+                        <div class="ecal-item-body">
+                            <div class="ecal-item-title">${escapeHtml(m.title)}${m.material_date ? ` — ${formatDueDate(m.material_date)}` : ''}</div>
+                            ${m.unit_id ? `<div class="immerse-material-unit-badge">${escapeHtml(unitNameFor(m.unit_id))}</div>` : ''}
+                            <div class="ecal-item-meta" id="materialMeta-${m.id}">${countByMaterial[m.id] ? `${countByMaterial[m.id]} card${countByMaterial[m.id] === 1 ? '' : 's'}` : 'No cards yet'}</div>
+                        </div>
+                        <button class="auth-btn immerse-generate-btn" data-id="${m.id}" type="button">${countByMaterial[m.id] ? 'Regenerate' : 'Generate Cards'}</button>
+                        <button class="ecal-delete-btn immerse-material-delete" data-id="${m.id}" title="Delete">✕</button>
+                    </div>
+                `).join('');
+
+                list.querySelectorAll('.immerse-generate-btn').forEach(btn => {
+                    btn.onclick = async () => {
+                        const material = materials.find(m => m.id === btn.dataset.id);
+                        if (!material) return;
+                        const isRegenerate = btn.textContent.trim() === 'Regenerate';
+                        if (isRegenerate && !confirm('Regenerate cards for this material? This replaces the existing cards and makes another Claude request.')) return;
+                        btn.disabled = true;
+                        btn.textContent = 'Generating…';
+                        try {
+                            const { data: blob, error: dlError } = await sb.storage.from(MATERIALS_BUCKET).download(material.storage_path);
+                            if (dlError) throw dlError;
+                            const base64 = await fileToBase64(blob);
+                            const count = await generateCardsFor(material, base64);
+                            document.getElementById(`materialMeta-${material.id}`).textContent = `${count} card${count === 1 ? '' : 's'}`;
+                            btn.textContent = 'Regenerate';
+                            scheduleStudyPlanRegen();
+                        } catch (err) {
+                            alert("Couldn't generate cards: " + (err.message || err));
+                            btn.textContent = 'Generate Cards';
+                        } finally {
+                            btn.disabled = false;
+                        }
+                    };
+                });
+
+                list.querySelectorAll('.immerse-material-delete').forEach(btn => {
+                    btn.onclick = async () => {
+                        const material = materials.find(m => m.id === btn.dataset.id);
+                        if (!material) return;
+                        if (!confirm(`Delete "${material.title}"? Its generated cards will be kept but unlinked.`)) return;
+                        await sb.storage.from(MATERIALS_BUCKET).remove([material.storage_path]);
+                        await sb.from('materials').delete().eq('id', material.id);
+                        loadMaterials();
+                    };
+                });
+            }
+
+            async function generateCardsFor(material, base64) {
+                const response = await fetch(IMMERSE_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileBase64: base64,
+                        mimeType: material.mime_type,
+                        className: cls.name,
+                        materialTitle: material.title,
+                    }),
+                });
+
+                const data = await response.json();
+                if (data.errorType) throw new Error(data.error);
+
+                const cards = data.cards || [];
+
+                // Regenerating replaces this material's cards rather than
+                // piling duplicates on top.
+                await sb.from('cards').delete().eq('material_id', material.id);
+
+                if (!cards.length) return 0;
+
+                const rows = cards.map(c => ({
+                    user_id: userId,
+                    class_id: classId,
+                    material_id: material.id,
+                    card_type: c.type,
+                    front: c.front,
+                    back: c.back,
+                }));
+
+                const { error } = await sb.from('cards').insert(rows);
+                if (error) throw error;
+                return rows.length;
+            }
+
+            document.getElementById('uploadMaterialBtn').onclick = async () => {
+                const titleInput = document.getElementById('materialTitleInput');
+                const dateInput = document.getElementById('materialDateInput');
+                const unitSelect = document.getElementById('materialUnitSelect');
+                const fileInput = document.getElementById('materialFileInput');
+                const file = fileInput.files[0];
+                const title = titleInput.value.trim();
+
+                if (!file || !title) { alert('Give the material a title and choose a file.'); return; }
+                if (file.size > MAX_UPLOAD_BYTES) { alert("That file's too large (20MB max)."); return; }
+
+                const btn = document.getElementById('uploadMaterialBtn');
+                btn.disabled = true;
+                btn.textContent = 'Uploading…';
+
+                try {
+                    const path = `${userId}/${Date.now()}_${file.name}`;
+                    const { error: uploadError } = await sb.storage.from(MATERIALS_BUCKET).upload(path, file);
+                    if (uploadError) throw uploadError;
+
+                    const { data: inserted, error: insertError } = await sb.from('materials').insert({
+                        user_id: userId,
+                        class_id: classId,
+                        unit_id: unitSelect.value || null,
+                        title,
+                        material_date: dateInput.value || null,
+                        storage_path: path,
+                        mime_type: file.type || 'application/octet-stream',
+                    }).select().single();
+                    if (insertError) throw insertError;
+
+                    titleInput.value = '';
+                    fileInput.value = '';
+                    document.getElementById('materialFileChosen').textContent = 'No file chosen.';
+
+                    await loadMaterials();
+
+                    // Auto-generate right away -- one less click between
+                    // "uploaded" and "ready to study".
+                    const genBtn = document.querySelector(`.immerse-generate-btn[data-id="${inserted.id}"]`);
+                    if (genBtn) genBtn.click();
+                    else scheduleStudyPlanRegen();
+                } catch (err) {
+                    alert("Couldn't save that upload: " + (err.message || err));
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Upload';
+                }
+            };
+
             function renderPlan(plan, generatedAt) {
                 const area = document.getElementById('planArea');
                 area.innerHTML = `
@@ -296,6 +509,8 @@
 
             await loadLessons();
             await loadUpcoming();
+            await loadUnits();
+            await loadMaterials();
         }
 
         async function initImmerseClassPage() {
