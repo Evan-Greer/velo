@@ -2118,6 +2118,23 @@ section#home {
 .immerse-priority-dot.normal { background: #92c2dd; }
 .immerse-priority-dot.high { background: #ff9d9d; }
 
+.immerse-today-card {
+    max-width: 680px;
+    margin: 0 auto;
+}
+
+.immerse-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+    width: 100%;
+}
+
+@media (max-width: 800px) {
+    .immerse-two-col { grid-template-columns: 1fr; }
+}
+
 .immerse-plan-numbered {
     list-style: none;
     counter-reset: immerse-plan-counter;
@@ -2137,6 +2154,7 @@ section#home {
     border-radius: 16px;
     background: rgba(162, 196, 214, 0.06);
     border: 1px solid rgba(162, 196, 214, 0.15);
+    transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .immerse-plan-numbered li::before {
@@ -2154,7 +2172,16 @@ section#home {
     justify-content: center;
 }
 
+.immerse-plan-checkbox {
+    flex-shrink: 0;
+    width: 17px;
+    height: 17px;
+    accent-color: #92c2dd;
+    cursor: pointer;
+}
+
 .immerse-plan-numbered li a {
+    flex: 1;
     color: var(--white);
     text-decoration: none;
     font-size: 0.9rem;
@@ -2162,6 +2189,31 @@ section#home {
 
 .immerse-plan-numbered li a:hover {
     color: #92c2dd;
+}
+
+.immerse-plan-time {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #92c2dd;
+    background: rgba(162, 196, 214, 0.12);
+    padding: 4px 10px;
+    border-radius: 10px;
+}
+
+.immerse-plan-numbered li.done {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+.immerse-plan-numbered li.done a {
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: line-through;
+}
+
+.immerse-plan-numbered li.done .immerse-plan-time {
+    color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .immerse-plan-empty-item {
