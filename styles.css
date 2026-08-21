@@ -1870,6 +1870,7 @@ section#home {
 .immerse-page .subtitle {
     color: rgba(255, 255, 255, 0.45);
     font-size: 0.85rem;
+    margin-bottom: 20px;
 }
 
 /* Soft filled pill buttons -- same gradient-glass language as the
@@ -1913,6 +1914,51 @@ section#home {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.immerse-unit-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.immerse-unit-pill {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.55);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.immerse-unit-pill:hover {
+    border-color: rgba(162, 196, 214, 0.3);
+    color: #fff;
+}
+
+.immerse-unit-pill.active {
+    background: rgba(162, 196, 214, 0.16);
+    border-color: rgba(162, 196, 214, 0.4);
+    color: #fff;
+}
+
+.immerse-unit-pill.add {
+    color: rgba(255, 255, 255, 0.35);
+    border-style: dashed;
+}
+
+.immerse-material-unit-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #92c2dd;
+    margin-top: 2px;
 }
 
 .immerse-page .ecal-item,
@@ -2032,10 +2078,10 @@ section#home {
 /* --- Immerse: wide dashboard layout, class tabs, tentative schedule --- */
 
 .immerse-page {
-    max-width: 1200px;
     width: 100%;
     margin: 0 auto;
     align-items: stretch;
+    gap: 32px;
 }
 
 .immerse-wide-card {
@@ -2051,7 +2097,7 @@ section#home {
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--white);
-    margin-bottom: 6px;
+    margin-bottom: 10px;
 }
 
 /* --- Immerse: hero --- */
@@ -2059,16 +2105,6 @@ section#home {
 .immerse-hero {
     width: 100%;
     padding: 8px 4px 4px 4px;
-}
-
-.immerse-eyebrow {
-    display: inline-flex;
-    align-items: center;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: rgba(255, 255, 255, 0.4);
-    margin-bottom: 16px;
 }
 
 .immerse-hero-title {
@@ -2333,7 +2369,7 @@ section#home {
 
 .immerse-upcoming-form {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr auto;
+    grid-template-columns: 2fr 1fr 1fr 1fr auto;
     gap: 8px;
 }
 
@@ -2355,10 +2391,6 @@ section#home {
 
 .immerse-form-input:focus {
     border-color: rgba(162, 196, 214, 0.3);
-}
-
-.immerse-plan-btn {
-    margin-top: 8px;
 }
 
 .immerse-plan-list {

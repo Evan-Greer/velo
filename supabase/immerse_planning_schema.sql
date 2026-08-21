@@ -6,9 +6,10 @@
 
 alter table classes add column if not exists priority text not null default 'normal' check (priority in ('low', 'normal', 'high'));
 
--- The plan is cached on the class row (not regenerated automatically) so
--- opening the class page doesn't silently re-spend an API call -- it only
--- updates when the user explicitly hits "Generate Study Plan".
+-- The plan is cached on the class row and regenerated automatically
+-- whenever a lesson, deadline, or material is added for the class (see
+-- regenerateStudyPlan() in immerse.html / immerse-class.html) -- opening
+-- the class page just reads the cached copy, it doesn't trigger a call.
 alter table classes add column if not exists study_plan jsonb;
 alter table classes add column if not exists study_plan_generated_at timestamptz;
 

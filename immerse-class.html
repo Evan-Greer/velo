@@ -35,6 +35,12 @@
             return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         }
 
+        function formatDueTime(time) {
+            if (!time) return '';
+            const [h, m] = time.split(':').map(Number);
+            return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        }
+
         function escapeHtml(str) {
             const div = document.createElement('div');
             div.textContent = str ?? '';
@@ -108,6 +114,7 @@
                                 <option value="project">Project</option>
                             </select>
                             <input type="date" class="immerse-form-input" id="upcomingDate" min="${todayISO()}">
+                            <input type="time" class="immerse-form-input" id="upcomingTime">
                             <button class="auth-btn" id="addUpcomingBtn" type="button">Add</button>
                         </div>
                     </div>
@@ -115,13 +122,19 @@
 
                 <div class="immerse-wide-card">
                     <h1>Study Plan</h1>
-                    <p class="subtitle">Generated from this class's lessons, deadlines, priority, and flashcard status. Upload and manage materials from the Immerse dashboard.</p>
-                    <button class="auth-btn immerse-plan-btn" id="generatePlanBtn" type="button">${cls.study_plan ? 'Regenerate Study Plan' : 'Generate Study Plan'}</button>
+                    <p class="subtitle" id="planStatus">Updates automatically as you log lessons, add deadlines, or upload materials.</p>
                     <div id="planArea"></div>
                 </div>
             `;
 
-            if (cls.study_plan) renderPlan(cls.study_plan, cls.study_plan_generated_at);
+            const planStatusEl = document.getElementById('planStatus');
+            const defaultPlanStatus = planStatusEl.textContent;
+
+            if (cls.study_plan) {
+                renderPlan(cls.study_plan, cls.study_plan_generated_at);
+            } else {
+                document.getElementById('planArea').innerHTML = `<p class="ecal-empty">Your study plan will appear here once there's a lesson, deadline, or material to work from.</p>`;
+            }
 
             document.getElementById('priorityPicker').querySelectorAll('.immerse-priority-btn').forEach(btn => {
                 btn.onclick = async () => {
@@ -130,6 +143,7 @@
                     btn.classList.add('active');
                     cls.priority = priority;
                     await sb.from('classes').update({ priority }).eq('id', classId);
+                    scheduleStudyPlanRegen();
                 };
             });
 
@@ -156,6 +170,7 @@
                 if (error) { alert("Couldn't log that: " + error.message); return; }
                 input.value = '';
                 loadLessons();
+                scheduleStudyPlanRegen();
             };
 
             async function loadUpcoming() {
@@ -173,7 +188,7 @@
                 }
                 el.innerHTML = data.map(u => `
                     <div class="immerse-upcoming-item" data-id="${u.id}">
-                        <div><span class="immerse-upcoming-type">${u.type}</span>${escapeHtml(u.title)} — ${formatDueDate(u.due_date)}</div>
+                        <div><span class="immerse-upcoming-type">${u.type}</span>${escapeHtml(u.title)} — ${formatDueDate(u.due_date)}${u.due_time ? ' at ' + formatDueTime(u.due_time) : ''}</div>
                         <button class="ecal-delete-btn immerse-upcoming-delete" data-id="${u.id}" title="Delete">✕</button>
                     </div>
                 `).join('');
@@ -190,6 +205,7 @@
                 const title = document.getElementById('upcomingTitle').value.trim();
                 const type = document.getElementById('upcomingType').value;
                 const dueDate = document.getElementById('upcomingDate').value;
+                const dueTime = document.getElementById('upcomingTime').value;
                 if (!title || !dueDate) { alert('Give it a title and a due date.'); return; }
 
                 const { error } = await sb.from('classwork').insert({
@@ -198,12 +214,15 @@
                     title,
                     type,
                     due_date: dueDate,
+                    due_time: dueTime || null,
                 });
                 if (error) { alert("Couldn't add that: " + error.message); return; }
 
                 document.getElementById('upcomingTitle').value = '';
                 document.getElementById('upcomingDate').value = '';
+                document.getElementById('upcomingTime').value = '';
                 loadUpcoming();
+                scheduleStudyPlanRegen();
             };
 
             function renderPlan(plan, generatedAt) {
@@ -221,12 +240,8 @@
                 `;
             }
 
-            document.getElementById('generatePlanBtn').onclick = async () => {
-                const btn = document.getElementById('generatePlanBtn');
-                if (cls.study_plan && !confirm('Generate a new study plan? This replaces the current one and makes another Claude request.')) return;
-
-                btn.disabled = true;
-                btn.textContent = 'Generating…';
+            async function regenerateStudyPlan() {
+                planStatusEl.textContent = 'Updating study plan…';
                 try {
                     const [{ data: lessons }, { data: upcoming }, { data: allCards }] = await Promise.all([
                         sb.from('lessons').select('entry_date, content').eq('class_id', classId).order('entry_date', { ascending: false }).limit(5),
@@ -263,14 +278,21 @@
                     await sb.from('classes').update({ study_plan: plan, study_plan_generated_at: generatedAt }).eq('id', classId);
                     cls.study_plan = plan;
                     renderPlan(plan, generatedAt);
-                    btn.textContent = 'Regenerate Study Plan';
                 } catch (err) {
-                    alert("Couldn't generate a study plan: " + (err.message || err));
-                    btn.textContent = cls.study_plan ? 'Regenerate Study Plan' : 'Generate Study Plan';
+                    console.error('Study plan regeneration failed:', err);
                 } finally {
-                    btn.disabled = false;
+                    planStatusEl.textContent = defaultPlanStatus;
                 }
-            };
+            }
+
+            // New lessons/deadlines/priority changes trigger a fresh plan
+            // automatically rather than requiring a manual button click --
+            // debounced so a burst of quick edits collapses into one call.
+            let planRegenTimer = null;
+            function scheduleStudyPlanRegen() {
+                clearTimeout(planRegenTimer);
+                planRegenTimer = setTimeout(regenerateStudyPlan, 2000);
+            }
 
             await loadLessons();
             await loadUpcoming();
