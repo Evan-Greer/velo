@@ -1845,42 +1845,66 @@ section#home {
 
 /* --- Immerse: class picker, materials, spaced-repetition review --- */
 
+/* ============================================================
+   Immerse -- sharp, flat, high-contrast dashboard aesthetic
+   (SpaceX/Tesla-style: hairline borders, no blur, square
+   corners, uppercase letter-spaced labels, outline-to-solid
+   buttons). Scoped under .immerse-page so nothing here leaks
+   into ECal/Log/DPS, which keep the original glass-card look.
+   ============================================================ */
+
+.immerse-page .immerse-wide-card,
+.immerse-page .content-card {
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.immerse-page h1 {
+    font-weight: 600;
+    letter-spacing: 0.16em;
+}
+
+.immerse-page .subtitle {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.82rem;
+}
+
+/* Outline buttons that invert to solid white on hover/active --
+   the SpaceX "ORDER NOW" / Tesla CTA pattern. */
+.immerse-page .auth-btn,
+.immerse-page .immerse-generate-btn,
+.immerse-page .log-photo-upload-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 2px;
+    box-shadow: none;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 10px 20px;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.immerse-page .auth-btn:hover,
+.immerse-page .immerse-generate-btn:hover,
+.immerse-page .log-photo-upload-btn:hover {
+    background: #fff;
+    color: #000;
+    border-color: #fff;
+}
+
+.immerse-page .immerse-generate-btn {
+    padding: 8px 14px;
+    font-size: 0.66rem;
+}
+
 .immerse-start-btn {
     margin-bottom: 18px;
-}
-
-.immerse-class-picker {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.immerse-class-chip {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.7);
-    padding: 9px 16px;
-    border-radius: 14px;
-    font-size: 0.82rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.immerse-class-chip:hover {
-    background: rgba(162, 196, 214, 0.1);
-    border-color: rgba(162, 196, 214, 0.25);
-}
-
-.immerse-class-chip.active {
-    background: rgba(162, 196, 214, 0.18);
-    border-color: rgba(162, 196, 214, 0.45);
-    color: #fff;
-}
-
-.immerse-add-class-chip {
-    border-style: dashed;
-    color: rgba(255, 255, 255, 0.4);
 }
 
 .immerse-upload-btn {
@@ -1890,44 +1914,52 @@ section#home {
 .immerse-materials-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+}
+
+.immerse-page .ecal-item,
+.immerse-page .immerse-upcoming-item,
+.immerse-page .history-entry {
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .immerse-material-item {
     align-items: center;
 }
 
-.immerse-generate-btn {
-    flex-shrink: 0;
-    font-size: 0.74rem;
-    padding: 7px 12px;
-}
-
 .immerse-review-progress {
-    font-size: 0.75rem;
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 0.72rem;
     color: rgba(255, 255, 255, 0.4);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     margin-bottom: 10px;
 }
 
 .immerse-review-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 20px;
-    padding: 32px 28px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 3px;
+    padding: 36px 32px;
     cursor: pointer;
     min-height: 140px;
     display: flex;
     flex-direction: column;
     gap: 14px;
+    transition: border-color 0.2s ease;
+}
+
+.immerse-review-card:hover {
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .immerse-review-type {
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #92c2dd;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.45);
 }
 
 .immerse-review-front {
@@ -1938,15 +1970,17 @@ section#home {
 
 .immerse-review-back {
     font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.75);
+    color: rgba(255, 255, 255, 0.7);
     line-height: 1.6;
     padding-top: 14px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .immerse-review-tap {
-    font-size: 0.72rem;
-    color: rgba(255, 255, 255, 0.3);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.25);
     text-align: center;
     margin-top: auto;
 }
@@ -1960,38 +1994,33 @@ section#home {
 .immerse-grade-btn {
     flex: 1;
     padding: 12px;
-    border-radius: 14px;
-    font-size: 0.85rem;
+    border-radius: 2px;
+    font-size: 0.75rem;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     cursor: pointer;
-    border: 1px solid transparent;
-    transition: all 0.2s ease;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-top: 2px solid rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.8);
+    transition: all 0.15s ease;
 }
 
-.immerse-grade-btn.again {
-    background: rgba(255, 118, 118, 0.12);
-    border-color: rgba(255, 118, 118, 0.3);
-    color: #ff9d9d;
-}
-.immerse-grade-btn.again:hover { background: rgba(255, 118, 118, 0.2); }
+.immerse-grade-btn.again { border-top-color: #ff5c5c; }
+.immerse-grade-btn.again:hover { background: #ff5c5c; border-color: #ff5c5c; color: #000; }
 
-.immerse-grade-btn.good {
-    background: rgba(162, 196, 214, 0.14);
-    border-color: rgba(162, 196, 214, 0.35);
-    color: #cfe6f2;
-}
-.immerse-grade-btn.good:hover { background: rgba(162, 196, 214, 0.24); }
+.immerse-grade-btn.good { border-top-color: rgba(255, 255, 255, 0.6); }
+.immerse-grade-btn.good:hover { background: #fff; border-color: #fff; color: #000; }
 
-.immerse-grade-btn.easy {
-    background: rgba(120, 210, 150, 0.12);
-    border-color: rgba(120, 210, 150, 0.3);
-    color: #a6e6bc;
-}
-.immerse-grade-btn.easy:hover { background: rgba(120, 210, 150, 0.2); }
+.immerse-grade-btn.easy { border-top-color: #4ade80; }
+.immerse-grade-btn.easy:hover { background: #4ade80; border-color: #4ade80; color: #000; }
 
 .immerse-review-done {
-    font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.6);
     text-align: center;
     padding: 24px 0;
 }
@@ -2008,17 +2037,14 @@ section#home {
 .immerse-wide-card {
     width: 100%;
     padding: 32px 40px;
-    border-radius: 28px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    /* visual treatment (border/bg/radius) comes from the scoped
+       .immerse-page .immerse-wide-card rule above */
 }
 
 .immerse-wide-card h1 {
     font-family: 'Titillium Web', sans-serif;
-    font-size: 1.4rem;
-    letter-spacing: 0.12em;
+    font-size: 1.15rem;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--white);
     margin-bottom: 6px;
@@ -2027,82 +2053,69 @@ section#home {
 .immerse-class-tabs {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 14px;
+    gap: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .immerse-class-tab {
     display: block;
     text-align: left;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 18px;
-    padding: 18px 20px;
+    background: #0a0a0a;
+    border: none;
+    border-radius: 0;
+    padding: 20px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.15s ease;
     text-decoration: none;
     color: inherit;
 }
 
 .immerse-class-tab:hover {
-    background: rgba(162, 196, 214, 0.1);
-    border-color: rgba(162, 196, 214, 0.3);
-    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .immerse-class-tab-name {
-    font-size: 1rem;
+    font-size: 0.92rem;
     font-weight: 600;
     color: var(--white);
     margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .immerse-class-tab-meta {
-    font-size: 0.76rem;
-    color: rgba(255, 255, 255, 0.5);
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .immerse-add-class-tab {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-style: dashed;
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     min-height: 76px;
-    background: none;
 }
 
 .immerse-priority-dot {
     display: inline-block;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    margin-right: 6px;
+    width: 6px;
+    height: 6px;
+    margin-right: 8px;
 }
 .immerse-priority-dot.low { background: rgba(255, 255, 255, 0.25); }
-.immerse-priority-dot.normal { background: #92c2dd; }
-.immerse-priority-dot.high { background: #ff9d9d; }
-
-.immerse-today-card {
-    max-width: 640px;
-    margin: 0 auto;
-    text-align: left;
-}
-
-.immerse-today-card h1 {
-    text-align: center;
-}
-
-.immerse-today-card .subtitle {
-    text-align: center;
-}
+.immerse-priority-dot.normal { background: rgba(255, 255, 255, 0.7); }
+.immerse-priority-dot.high { background: #ff5c5c; }
 
 .immerse-plan-numbered {
     list-style: none;
     counter-reset: immerse-plan-counter;
     display: flex;
     flex-direction: column;
-    gap: 10px;
     padding: 0;
     margin: 0;
 }
@@ -2111,58 +2124,59 @@ section#home {
     counter-increment: immerse-plan-counter;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
-    border-radius: 14px;
-    background: rgba(162, 196, 214, 0.06);
-    border: 1px solid rgba(162, 196, 214, 0.15);
+    gap: 16px;
+    padding: 16px 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.immerse-plan-numbered li:last-child {
+    border-bottom: none;
 }
 
 .immerse-plan-numbered li::before {
-    content: counter(immerse-plan-counter);
+    content: counter(immerse-plan-counter, decimal-leading-zero);
     flex-shrink: 0;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: rgba(162, 196, 214, 0.2);
-    color: #eaf3f8;
-    font-size: 0.75rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.05em;
 }
 
 .immerse-plan-numbered li a {
     color: var(--white);
     text-decoration: none;
-    font-size: 0.9rem;
+    font-size: 0.92rem;
+    transition: color 0.15s ease;
 }
 
 .immerse-plan-numbered li a:hover {
-    color: #92c2dd;
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .immerse-plan-empty-item {
     list-style: none;
-    text-align: center;
-    color: rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.35);
     font-size: 0.85rem;
     padding: 12px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 /* --- Immerse: per-class page --- */
 
 .immerse-back-link {
     display: inline-block;
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.4);
     text-decoration: none;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
+    transition: color 0.15s ease;
 }
 
 .immerse-back-link:hover {
-    color: #92c2dd;
+    color: #fff;
 }
 
 .immerse-class-header {
@@ -2175,28 +2189,35 @@ section#home {
 
 .immerse-priority-picker {
     display: flex;
-    gap: 8px;
+    gap: 0;
+    border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .immerse-priority-btn {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.6);
-    padding: 7px 14px;
-    border-radius: 12px;
-    font-size: 0.76rem;
-    font-weight: 500;
+    background: transparent;
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.5);
+    padding: 8px 16px;
+    border-radius: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
+}
+
+.immerse-priority-btn:first-child {
+    border-left: none;
 }
 
 .immerse-priority-btn:hover {
-    border-color: rgba(162, 196, 214, 0.3);
+    color: #fff;
 }
 
-.immerse-priority-btn.active.low { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.3); color: #fff; }
-.immerse-priority-btn.active.normal { background: rgba(162, 196, 214, 0.18); border-color: rgba(162, 196, 214, 0.45); color: #fff; }
-.immerse-priority-btn.active.high { background: rgba(255, 118, 118, 0.15); border-color: rgba(255, 118, 118, 0.4); color: #fff; }
+.immerse-priority-btn.active { background: #fff; color: #000; }
+.immerse-priority-btn.active.high { background: #ff5c5c; color: #000; }
 
 .immerse-class-grid {
     display: grid;
@@ -2217,7 +2238,7 @@ section#home {
 .immerse-upcoming-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     margin-bottom: 14px;
 }
 
@@ -2226,17 +2247,15 @@ section#home {
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
     font-size: 0.82rem;
 }
 
 .immerse-upcoming-type {
-    font-size: 0.68rem;
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 0.66rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #92c2dd;
+    color: rgba(255, 255, 255, 0.45);
     margin-right: 8px;
 }
 
@@ -2251,9 +2270,9 @@ section#home {
 }
 
 .immerse-form-input {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 2px;
     padding: 9px 12px;
     color: var(--white);
     font-family: inherit;
@@ -2263,7 +2282,7 @@ section#home {
 }
 
 .immerse-form-input:focus {
-    border-color: rgba(162, 196, 214, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
 .immerse-plan-btn {
@@ -2273,33 +2292,38 @@ section#home {
 .immerse-plan-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 1px;
     margin-top: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .immerse-plan-item {
-    padding: 14px 18px;
-    border-radius: 14px;
-    background: rgba(162, 196, 214, 0.06);
-    border: 1px solid rgba(162, 196, 214, 0.15);
+    padding: 16px 18px;
+    background: #0a0a0a;
 }
 
 .immerse-plan-headline {
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--white);
     margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
 }
 
 .immerse-plan-detail {
     font-size: 0.82rem;
-    color: rgba(255, 255, 255, 0.65);
+    color: rgba(255, 255, 255, 0.55);
     line-height: 1.5;
 }
 
 .immerse-plan-timestamp {
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.35);
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.3);
     margin-top: 10px;
 }
 
