@@ -2127,12 +2127,27 @@ section#home {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 24px;
-    align-items: start;
+    align-items: stretch;
     width: 100%;
 }
 
 @media (max-width: 800px) {
     .immerse-two-col { grid-template-columns: 1fr; }
+}
+
+.immerse-two-col > .immerse-wide-card {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Keeps the "Immerse"/"Classes" headers lined up across both
+   columns even when one card's body is much shorter -- only the
+   body below the header centers into the extra stretched height. */
+.immerse-review-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .immerse-plan-numbered {
