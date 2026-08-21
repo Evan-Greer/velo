@@ -91,6 +91,12 @@
             const pageMain = document.getElementById('pageMain');
 
             pageMain.innerHTML = `
+                <div class="immerse-wide-card immerse-today-card">
+                    <h1>Today's Plan</h1>
+                    <p class="subtitle">A rough day's worth of focused blocks, based on deadlines, priority, and what's due for review.</p>
+                    <ol class="immerse-plan-numbered" id="todaysPlanList"></ol>
+                </div>
+
                 <div class="immerse-wide-card">
                     <h1>Immerse</h1>
                     <p class="subtitle" id="reviewSummary">Loading review queue…</p>
@@ -102,12 +108,6 @@
                     <h1>Classes</h1>
                     <p class="subtitle">Click a class to manage its materials, deadlines, and study plan.</p>
                     <div class="immerse-class-tabs" id="classTabs"></div>
-                </div>
-
-                <div class="immerse-wide-card">
-                    <h1>Tentative Learning Schedule</h1>
-                    <p class="subtitle">A rough read on what needs attention first, based on deadlines, priority, and what's due for review.</p>
-                    <div class="immerse-schedule-list" id="scheduleList"></div>
                 </div>
             `;
 
@@ -226,11 +226,11 @@
                 classes = classRows || [];
 
                 const tabsEl = document.getElementById('classTabs');
-                const scheduleEl = document.getElementById('scheduleList');
+                const planEl = document.getElementById('todaysPlanList');
 
                 if (!classes.length) {
                     tabsEl.innerHTML = `<button class="immerse-class-tab immerse-add-class-tab" id="addClassTab" type="button">+ Add your first class</button>`;
-                    scheduleEl.innerHTML = `<p class="ecal-empty">Add a class to see a schedule here.</p>`;
+                    planEl.innerHTML = `<li class="immerse-plan-empty-item">Add a class to see a plan here.</li>`;
                     document.getElementById('addClassTab').onclick = addClass;
                     return;
                 }
@@ -273,31 +273,26 @@
 
                 document.getElementById('addClassTab').onclick = addClass;
 
-                scheduleEl.innerHTML = ranked.map(({ cls, dueCount, nearest, daysUntil }) => {
-                    let urgency = 'On track';
-                    let detail;
+                // Cap at 5 so it stays a doable day, not a wall of tasks --
+                // only classes with something actually pending (a near
+                // deadline or cards due) make the list at all.
+                const TYPE_LABEL = { homework: 'HW', quiz: 'Quiz prep', test: 'Exam study', project: 'Project work' };
+                const TYPE_MINUTES = { homework: 20, quiz: 20, test: 30, project: 25 };
+                const planItems = [];
+                for (const { cls, dueCount, nearest, daysUntil } of ranked) {
+                    if (planItems.length >= 5) break;
                     if (nearest && daysUntil <= 3) {
-                        urgency = 'Urgent';
-                        detail = `${escapeHtml(nearest.title)} (${nearest.type}) ${daysUntil <= 0 ? 'is due today' : `is due in ${daysUntil} day${daysUntil === 1 ? '' : 's'}`} — prioritize short daily review sessions over one long cram.`;
+                        const minutes = TYPE_MINUTES[nearest.type] || 20;
+                        const label = TYPE_LABEL[nearest.type] || 'Study';
+                        planItems.push({ classId: cls.id, text: `${cls.name} — ${label} for ${minutes} min` });
                     } else if (dueCount > 0) {
-                        urgency = 'Review due';
-                        detail = `${dueCount} card${dueCount === 1 ? '' : 's'} due today — a quick session keeps this on track.`;
-                    } else if (nearest) {
-                        detail = `${escapeHtml(nearest.title)} (${nearest.type}) due ${formatDueDate(nearest.due_date)} — steady pace, nothing urgent yet.`;
-                    } else {
-                        detail = `Nothing scheduled for this class — a good time to upload material or log a lesson.`;
+                        planItems.push({ classId: cls.id, text: `${cls.name} — Flashcards for 15 min` });
                     }
+                }
 
-                    return `
-                        <div class="immerse-schedule-item">
-                            <div class="immerse-schedule-item-head">
-                                <span class="immerse-schedule-class">${escapeHtml(cls.name)}</span>
-                                <span class="immerse-schedule-urgency">${urgency}</span>
-                            </div>
-                            <div class="immerse-schedule-detail">${detail}</div>
-                        </div>
-                    `;
-                }).join('');
+                planEl.innerHTML = planItems.length
+                    ? planItems.map(item => `<li><a href="immerse-class.html?id=${item.classId}">${escapeHtml(item.text)}</a></li>`).join('')
+                    : `<li class="immerse-plan-empty-item">Nothing urgent today — good day to get ahead on material or a light review.</li>`;
             }
 
             async function addClass() {

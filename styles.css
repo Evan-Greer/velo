@@ -2082,43 +2082,72 @@ section#home {
 .immerse-priority-dot.normal { background: #92c2dd; }
 .immerse-priority-dot.high { background: #ff9d9d; }
 
-.immerse-schedule-list {
+.immerse-today-card {
+    max-width: 640px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+.immerse-today-card h1 {
+    text-align: center;
+}
+
+.immerse-today-card .subtitle {
+    text-align: center;
+}
+
+.immerse-plan-numbered {
+    list-style: none;
+    counter-reset: immerse-plan-counter;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
+    padding: 0;
+    margin: 0;
 }
 
-.immerse-schedule-item {
-    padding: 16px 20px;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.immerse-schedule-item-head {
+.immerse-plan-numbered li {
+    counter-increment: immerse-plan-counter;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: rgba(162, 196, 214, 0.06);
+    border: 1px solid rgba(162, 196, 214, 0.15);
 }
 
-.immerse-schedule-class {
-    font-size: 0.88rem;
+.immerse-plan-numbered li::before {
+    content: counter(immerse-plan-counter);
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(162, 196, 214, 0.2);
+    color: #eaf3f8;
+    font-size: 0.75rem;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.immerse-plan-numbered li a {
     color: var(--white);
+    text-decoration: none;
+    font-size: 0.9rem;
 }
 
-.immerse-schedule-urgency {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+.immerse-plan-numbered li a:hover {
+    color: #92c2dd;
+}
+
+.immerse-plan-empty-item {
+    list-style: none;
+    text-align: center;
     color: rgba(255, 255, 255, 0.4);
-}
-
-.immerse-schedule-detail {
-    font-size: 0.82rem;
-    color: rgba(255, 255, 255, 0.6);
-    line-height: 1.5;
+    font-size: 0.85rem;
+    padding: 12px 0;
 }
 
 /* --- Immerse: per-class page --- */
