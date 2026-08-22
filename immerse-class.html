@@ -21,6 +21,7 @@
     <script src="shared.js"></script>
     <script>
         const IMMERSE_PLANNER_URL = "https://vgkbefoasgqmainbmvhz.supabase.co/functions/v1/immerse-planner";
+        const IMMERSE_QUIZ_URL = "https://vgkbefoasgqmainbmvhz.supabase.co/functions/v1/immerse-quiz";
         const IMMERSE_FUNCTION_URL = "https://vgkbefoasgqmainbmvhz.supabase.co/functions/v1/immerse-brain";
         const MATERIALS_BUCKET = 'class-materials';
         const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
@@ -152,6 +153,19 @@
                     <p class="subtitle" id="planStatus">Updates automatically as you log lessons, add deadlines, or upload materials.</p>
                     <div id="planArea"></div>
                 </div>
+
+                <div class="immerse-wide-card" id="examCountdownCard" style="display:none;">
+                    <h1>Exam Countdown</h1>
+                    <p class="subtitle">Spaced checkpoints between now and your next exam, not a cram session.</p>
+                    <div id="examCountdownArea"></div>
+                </div>
+
+                <div class="immerse-wide-card">
+                    <h1>Quiz Yourself</h1>
+                    <p class="subtitle">A 5-question quiz pulled from this class's flashcards and lessons — retrieval practice beats rereading.</p>
+                    <button class="auth-btn" id="startQuizBtn" type="button">Start Quiz</button>
+                    <div id="quizArea"></div>
+                </div>
             `;
 
             const planStatusEl = document.getElementById('planStatus');
@@ -161,6 +175,9 @@
                 renderPlan(cls.study_plan, cls.study_plan_generated_at);
             } else {
                 document.getElementById('planArea').innerHTML = `<p class="ecal-empty">Your study plan will appear here once there's a lesson, deadline, or material to work from.</p>`;
+            }
+            if (cls.exam_plan && cls.exam_plan.length) {
+                renderExamCountdown(cls.exam_plan, cls.exam_plan_generated_at);
             }
 
             document.getElementById('priorityPicker').querySelectorAll('.immerse-priority-btn').forEach(btn => {
@@ -453,12 +470,31 @@
                 `;
             }
 
+            function renderExamCountdown(countdown, generatedAt) {
+                const card = document.getElementById('examCountdownCard');
+                if (!countdown || !countdown.length) { card.style.display = 'none'; return; }
+                card.style.display = 'block';
+                const today = todayISO();
+                document.getElementById('examCountdownArea').innerHTML = `
+                    <div class="immerse-countdown-list">
+                        ${countdown.map(item => `
+                            <div class="immerse-countdown-item${item.date <= today ? ' past' : ''}">
+                                <div class="immerse-countdown-date">${formatDueDate(item.date)}</div>
+                                <div class="immerse-countdown-task">${escapeHtml(item.task)}</div>
+                                <div class="immerse-countdown-minutes">${item.minutes} min</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${generatedAt ? `<div class="immerse-plan-timestamp">Generated ${new Date(generatedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>` : ''}
+                `;
+            }
+
             async function regenerateStudyPlan() {
                 planStatusEl.textContent = 'Updating study plan…';
                 try {
                     const [{ data: lessons }, { data: upcoming }, { data: allCards }] = await Promise.all([
                         sb.from('lessons').select('entry_date, content').eq('class_id', classId).order('entry_date', { ascending: false }).limit(5),
-                        sb.from('classwork').select('title, type, due_date').eq('user_id', userId).eq('class_name', cls.name).gte('due_date', todayISO()).order('due_date', { ascending: true }).limit(5),
+                        sb.from('classwork').select('title, type, due_date').eq('user_id', userId).eq('class_name', cls.name).gte('due_date', todayISO()).order('due_date', { ascending: true }).limit(10),
                         sb.from('cards').select('card_type, next_review_date').eq('class_id', classId),
                     ]);
 
@@ -479,6 +515,7 @@
                             lessons: lessons || [],
                             upcoming: upcoming || [],
                             cardStats,
+                            recentQuizMisses: cls.recent_quiz_misses || [],
                         }),
                     });
 
@@ -486,11 +523,19 @@
                     if (data.errorType) throw new Error(data.error);
 
                     const plan = data.plan || [];
+                    const examCountdown = data.examCountdown || [];
                     const generatedAt = new Date().toISOString();
 
-                    await sb.from('classes').update({ study_plan: plan, study_plan_generated_at: generatedAt }).eq('id', classId);
+                    await sb.from('classes').update({
+                        study_plan: plan,
+                        study_plan_generated_at: generatedAt,
+                        exam_plan: examCountdown,
+                        exam_plan_generated_at: generatedAt,
+                    }).eq('id', classId);
                     cls.study_plan = plan;
+                    cls.exam_plan = examCountdown;
                     renderPlan(plan, generatedAt);
+                    renderExamCountdown(examCountdown, generatedAt);
                 } catch (err) {
                     console.error('Study plan regeneration failed:', err);
                 } finally {
@@ -505,6 +550,123 @@
             function scheduleStudyPlanRegen() {
                 clearTimeout(planRegenTimer);
                 planRegenTimer = setTimeout(regenerateStudyPlan, 2000);
+            }
+
+            document.getElementById('startQuizBtn').onclick = startQuiz;
+
+            async function startQuiz() {
+                const btn = document.getElementById('startQuizBtn');
+                const area = document.getElementById('quizArea');
+                btn.disabled = true;
+                btn.textContent = 'Building quiz…';
+                try {
+                    const [{ data: cardRows }, { data: lessonRows }] = await Promise.all([
+                        sb.from('cards').select('front, back').eq('class_id', classId).limit(40),
+                        sb.from('lessons').select('entry_date, content').eq('class_id', classId).order('entry_date', { ascending: false }).limit(5),
+                    ]);
+                    if (!cardRows || !cardRows.length) {
+                        alert("Generate flashcards from a material first -- the quiz is built from them.");
+                        return;
+                    }
+                    const response = await fetch(IMMERSE_QUIZ_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ className: cls.name, cards: cardRows, lessons: lessonRows || [] }),
+                    });
+                    const data = await response.json();
+                    if (data.errorType) throw new Error(data.error);
+                    const questions = data.questions || [];
+                    if (!questions.length) throw new Error('No questions came back.');
+                    area.innerHTML = '';
+                    runQuiz(questions);
+                } catch (err) {
+                    alert("Couldn't build a quiz: " + (err.message || err));
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Start Quiz';
+                }
+            }
+
+            // Interleaved multiple-choice retrieval practice: each miss is
+            // explained (elaborative interrogation, not just marked wrong)
+            // and rolled into recent_quiz_misses so the next study-plan
+            // regen actually targets what was missed, not just what's due.
+            function runQuiz(questions) {
+                let index = 0;
+                let correctCount = 0;
+                const missed = [];
+                const area = document.getElementById('quizArea');
+                document.getElementById('startQuizBtn').style.display = 'none';
+
+                function renderQuestion() {
+                    const q = questions[index];
+                    area.innerHTML = `
+                        <div class="immerse-quiz-progress">Question ${index + 1} of ${questions.length}</div>
+                        <div class="immerse-quiz-question">${escapeHtml(q.question)}</div>
+                        <div class="immerse-quiz-options" id="quizOptions">
+                            ${q.options.map((opt, i) => `<button class="immerse-quiz-option" data-i="${i}" type="button">${escapeHtml(opt)}</button>`).join('')}
+                        </div>
+                        <div class="immerse-quiz-explanation" id="quizExplanation" style="display:none;"></div>
+                        <button class="auth-btn immerse-quiz-next" id="quizNextBtn" type="button" style="display:none;">${index === questions.length - 1 ? 'See Results' : 'Next Question'}</button>
+                    `;
+
+                    area.querySelectorAll('.immerse-quiz-option').forEach(optBtn => {
+                        optBtn.onclick = () => {
+                            const picked = parseInt(optBtn.dataset.i, 10);
+                            const correct = picked === q.correctIndex;
+                            if (correct) correctCount++;
+                            else missed.push(q);
+
+                            area.querySelectorAll('.immerse-quiz-option').forEach(b => {
+                                b.disabled = true;
+                                const bi = parseInt(b.dataset.i, 10);
+                                if (bi === q.correctIndex) b.classList.add('correct');
+                                else if (bi === picked) b.classList.add('incorrect');
+                            });
+
+                            const explEl = document.getElementById('quizExplanation');
+                            explEl.style.display = 'block';
+                            explEl.innerHTML = `<strong>${correct ? 'Correct.' : 'Not quite.'}</strong> ${escapeHtml(q.explanation)}`;
+                            document.getElementById('quizNextBtn').style.display = 'inline-block';
+                        };
+                    });
+
+                    document.getElementById('quizNextBtn').onclick = () => {
+                        index++;
+                        if (index >= questions.length) finishQuiz();
+                        else renderQuestion();
+                    };
+                }
+
+                function finishQuiz() {
+                    const startBtn = document.getElementById('startQuizBtn');
+                    startBtn.style.display = 'inline-block';
+                    startBtn.textContent = 'Retake Quiz';
+
+                    const missedTopics = [...new Set(missed.map(q => q.topic))];
+
+                    area.innerHTML = `
+                        <div class="immerse-quiz-score">${correctCount} / ${questions.length} correct</div>
+                        ${missedTopics.length ? `
+                            <div class="immerse-quiz-review-label">Worth reviewing:</div>
+                            <div class="immerse-quiz-review-list">
+                                ${missedTopics.map(topic => `
+                                    <a class="immerse-quiz-youtube-link" href="https://www.youtube.com/results?search_query=${encodeURIComponent(cls.name + ' ' + topic + ' explained')}" target="_blank" rel="noopener">Search YouTube: ${escapeHtml(topic)}</a>
+                                `).join('')}
+                            </div>
+                        ` : `<div class="immerse-quiz-review-label">Clean sweep — nice work.</div>`}
+                    `;
+
+                    if (missedTopics.length) {
+                        const misses = missedTopics.map(topic => ({ topic, date: todayISO() }));
+                        sb.from('classes').update({ recent_quiz_misses: misses }).eq('id', classId).then(() => {
+                            cls.recent_quiz_misses = misses;
+                            scheduleStudyPlanRegen();
+                        });
+                    }
+                }
+
+                renderQuestion();
             }
 
             await loadLessons();

@@ -2398,3 +2398,148 @@ section#home {
     margin-top: 10px;
 }
 
+/* --- Immerse: exam countdown timeline --- */
+
+.immerse-countdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.immerse-countdown-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border-left: 2px solid rgba(162, 196, 214, 0.4);
+}
+
+.immerse-countdown-item.past {
+    opacity: 0.4;
+}
+
+.immerse-countdown-date {
+    flex: 0 0 64px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #92c2dd;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.immerse-countdown-task {
+    flex: 1;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.immerse-countdown-minutes {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* --- Immerse: quiz --- */
+
+.immerse-quiz-progress {
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 18px;
+    margin-bottom: 10px;
+}
+
+.immerse-quiz-question {
+    font-size: 1rem;
+    color: var(--white);
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.immerse-quiz-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.immerse-quiz-option {
+    text-align: left;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.85);
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.immerse-quiz-option:hover:not(:disabled) {
+    border-color: rgba(162, 196, 214, 0.35);
+}
+
+.immerse-quiz-option:disabled {
+    cursor: default;
+}
+
+.immerse-quiz-option.correct {
+    background: rgba(120, 210, 150, 0.14);
+    border-color: rgba(120, 210, 150, 0.4);
+    color: #a6e6bc;
+}
+
+.immerse-quiz-option.incorrect {
+    background: rgba(255, 118, 118, 0.12);
+    border-color: rgba(255, 118, 118, 0.35);
+    color: #ff9d9d;
+}
+
+.immerse-quiz-explanation {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: rgba(162, 196, 214, 0.06);
+    border: 1px solid rgba(162, 196, 214, 0.15);
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.5;
+}
+
+.immerse-quiz-next {
+    margin-top: 16px;
+}
+
+.immerse-quiz-score {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--white);
+    margin-top: 18px;
+    margin-bottom: 4px;
+}
+
+.immerse-quiz-review-label {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 10px;
+}
+
+.immerse-quiz-review-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.immerse-quiz-youtube-link {
+    display: inline-block;
+    font-size: 0.82rem;
+    color: #92c2dd;
+    text-decoration: none;
+}
+
+.immerse-quiz-youtube-link:hover {
+    color: #fff;
+}
+

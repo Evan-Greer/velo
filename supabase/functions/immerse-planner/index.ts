@@ -7,19 +7,34 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Embeds the same evidence-based approach the flashcard generator uses:
-// worked-example-first for anything genuinely new, spaced/interleaved
-// retrieval practice for everything already introduced, and urgency
-// shaped by real deadlines and the priority the student set -- not a
-// generic "study more" plan.
+// Grounded in the learning-science literature, not intuition:
+// - Dunlosky et al. 2013 (Psych Science in the Public Interest) rates
+//   practice testing and distributed/spaced practice as the two
+//   HIGH-utility techniques out of 10 studied; interleaving and
+//   elaborative interrogation are moderate; rereading/highlighting are
+//   low utility. This planner only ever prescribes retrieval-based,
+//   spaced, interleaved actions -- never "reread your notes."
+// - The spacing/lag effect: gaps should scale with how far out the
+//   thing you're preparing for is, roughly 10-30% of the retention
+//   interval, with real checkpoints (not daily grinding, not one
+//   cram session). Concretely: exams ~1-2 weeks out get checkpoints
+//   spaced ~2-3 days apart; exams ~3+ weeks out get fewer, wider
+//   checkpoints early that tighten to ~1-2 days apart in the final
+//   week. The last checkpoint is always light review, never new
+//   material, and never later than the day before.
+// - Desirable difficulties (Bjork): short sessions with real retrieval
+//   effort beat long smooth review sessions, which is also why this
+//   stays short-block (15-20 min) rather than marathon study blocks.
 const SYSTEM_PROMPT = `
 You write a short, concrete study plan for one college class, for a student with ADHD who does best with short focused sessions rather than long ones.
 
-You'll be given: the class's priority level, what was covered in recent lessons, upcoming homework/exam deadlines, and current flashcard review stats for the class.
+You'll be given: today's date, the class's priority level, what was covered in recent lessons, upcoming homework/exam deadlines, current flashcard review stats, and any topics the student recently missed on a self-quiz.
 
-Ground every recommendation in what's actually due or recently covered -- reference specific lesson topics and specific deadlines by name, don't write generic advice. If a lesson was recently logged and no cards exist for it yet, say so explicitly (e.g. "upload notes from the divergence theorem lesson so it gets turned into cards"). If an exam is close, recommend daily short review blocks rather than one long cram session. If nothing is urgent, say that plainly and recommend steady light review instead of manufacturing urgency.
+Every recommendation must be a retrieval-practice or spaced-review action -- self-testing, flashcard review, practice problems, a self-quiz. Never recommend rereading notes, highlighting, or re-watching a lecture as a primary action; those are low-utility per the research base this planner is built on. Ground every recommendation in what's actually due or recently covered -- reference specific lesson topics and specific deadlines by name, don't write generic advice. If a lesson was recently logged and no cards exist for it yet, say so explicitly. If the student recently missed quiz topics, prioritize a recommendation that retests exactly those topics. If nothing is urgent, say that plainly and recommend steady light review instead of manufacturing urgency.
 
-Return 3 to 6 recommendations, ordered most important first. Each should be doable as a single short (15-20 minute) focused session.
+Return 3 to 6 recommendations for "plan", ordered most important first. Each should be doable as a single short (15-20 minute) focused session -- short blocks with real retrieval effort beat long passive review sessions.
+
+Separately, check if there's a test/exam more than 3 days away. If so, also build "examCountdown": a countdown of short study checkpoints between today and that exam, using real calendar dates (YYYY-MM-DD), each with a concrete task naming the exam and topic, and a duration in minutes (15-25 min each). Follow the spacing/lag effect: checkpoints should NOT be daily and should NOT be just one or two sessions either -- scale checkpoint spacing to how far out the exam is (wider gaps early when the exam is far out, tightening to every 1-2 days in the final week). The very last checkpoint must be a light review the day before the exam, never new material, and no checkpoint should land on the exam day itself. If there's no test/exam more than 3 days out, return an empty array for examCountdown.
 `.trim();
 
 const PLAN_SCHEMA = {
@@ -37,8 +52,21 @@ const PLAN_SCHEMA = {
         additionalProperties: false,
       },
     },
+    examCountdown: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          date: { type: "string" },
+          task: { type: "string" },
+          minutes: { type: "number" },
+        },
+        required: ["date", "task", "minutes"],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ["plan"],
+  required: ["plan", "examCountdown"],
   additionalProperties: false,
 };
 
@@ -48,7 +76,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { className, priority, lessons, upcoming, cardStats } = await req.json();
+    const { className, priority, lessons, upcoming, cardStats, recentQuizMisses } = await req.json();
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
 
     if (!apiKey) {
@@ -56,6 +84,8 @@ Deno.serve(async (req) => {
     }
 
     const client = new Anthropic({ apiKey });
+
+    const today = new Date().toISOString().slice(0, 10);
 
     const lessonsText = (lessons || []).length
       ? (lessons as { entry_date: string; content: string }[]).map(l => `- ${l.entry_date}: ${l.content}`).join('\n')
@@ -69,7 +99,12 @@ Deno.serve(async (req) => {
       ? `${cardStats.due} of ${cardStats.total} cards due today (${cardStats.procedural} procedural, ${cardStats.declarative} declarative)`
       : 'no flashcards generated yet';
 
+    const missesText = (recentQuizMisses || []).length
+      ? (recentQuizMisses as { topic: string }[]).map(m => `- ${m.topic}`).join('\n')
+      : '(no recent quiz misses)';
+
     const userMessage = `
+Today's date: ${today}
 Class: ${className}
 Priority: ${priority}
 
@@ -80,6 +115,9 @@ Upcoming deadlines:
 ${upcomingText}
 
 Flashcard status: ${statsText}
+
+Recently missed quiz topics:
+${missesText}
 `.trim();
 
     const response = await client.messages.create({
@@ -91,9 +129,9 @@ Flashcard status: ${statsText}
     });
 
     const textBlock = response.content.find((b: any) => b.type === 'text');
-    const parsed = textBlock ? JSON.parse((textBlock as any).text) : { plan: [] };
+    const parsed = textBlock ? JSON.parse((textBlock as any).text) : { plan: [], examCountdown: [] };
 
-    return new Response(JSON.stringify({ plan: parsed.plan || [] }), {
+    return new Response(JSON.stringify({ plan: parsed.plan || [], examCountdown: parsed.examCountdown || [] }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
